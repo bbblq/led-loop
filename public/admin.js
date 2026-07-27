@@ -53,6 +53,13 @@
     videoFileInput: document.getElementById('video-file-input'),
     videoList: document.getElementById('video-list'),
     
+    // Presets
+    presetSelect: document.getElementById('preset-select'),
+    btnApplyPreset: document.getElementById('btn-apply-preset'),
+    btnRenamePreset: document.getElementById('btn-rename-preset'),
+    btnSaveNewPreset: document.getElementById('btn-save-new-preset'),
+    btnDeletePreset: document.getElementById('btn-delete-preset'),
+
     // Record
     btnRecord: document.getElementById('btn-record'),
     recordDuration: document.getElementById('record-duration'),
@@ -64,6 +71,8 @@
   };
 
   let activeBgType = 'gradient-flow';
+  let presetsList = [];
+  let currentPresetId = '';
 
   function initApp() {
     if (renderer) return;
@@ -73,6 +82,7 @@
     setupEventListeners();
     loadFontList();
     loadVideoList();
+    loadPresets();
     
     fetch('/api/config')
       .then(res => res.json())
@@ -140,6 +150,13 @@
       syncConfig();
     });
 
+    // Presets listeners
+    el.presetSelect.addEventListener('change', onPresetSelectChange);
+    el.btnApplyPreset.addEventListener('click', applyPreset);
+    el.btnRenamePreset.addEventListener('click', renamePreset);
+    el.btnSaveNewPreset.addEventListener('click', saveNewPreset);
+    el.btnDeletePreset.addEventListener('click', deletePreset);
+
     // Save
     el.btnSave.addEventListener('click', saveConfig);
 
@@ -181,6 +198,141 @@
 
     // Record
     el.btnRecord.addEventListener('click', startRecording);
+  }
+
+  // ===== Preset Helper Functions =====
+  function loadPresets() {
+    return fetch('/api/presets')
+      .then(res => res.json())
+      .then(data => {
+        presetsList = data.presets || [];
+        currentPresetId = data.activePresetId || (presetsList[0] && presetsList[0].id);
+        renderPresetSelect();
+      })
+      .catch(err => console.error('Failed to load presets:', err));
+  }
+
+  function renderPresetSelect() {
+    el.presetSelect.innerHTML = '';
+    const selectedId = el.presetSelect.dataset.selectedId || currentPresetId;
+    presetsList.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.id === currentPresetId ? `★ ${p.name} (大屏生效中)` : p.name;
+      if (p.id === selectedId) {
+        opt.selected = true;
+      }
+      el.presetSelect.appendChild(opt);
+    });
+  }
+
+  function onPresetSelectChange() {
+    const selectedId = el.presetSelect.value;
+    el.presetSelect.dataset.selectedId = selectedId;
+    const target = presetsList.find(p => p.id === selectedId);
+    if (target) {
+      applyConfig(target.config);
+      renderer.updateConfig(target.config);
+    }
+  }
+
+  function applyPreset() {
+    const selectedId = el.presetSelect.value;
+    fetch('/api/presets/activate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: selectedId })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        currentPresetId = selectedId;
+        renderPresetSelect();
+        showToast('场景已成功切换上屏生效！');
+      } else {
+        showToast(data.error || '切换失败', 'error');
+      }
+    });
+  }
+
+  function renamePreset() {
+    const selectedId = el.presetSelect.value;
+    const target = presetsList.find(p => p.id === selectedId);
+    if (!target) return;
+    
+    const newName = prompt('请输入新的场景名称：', target.name);
+    if (!newName || !newName.trim()) return;
+
+    fetch('/api/presets/rename', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: selectedId, name: newName.trim() })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        target.name = newName.trim();
+        renderPresetSelect();
+        showToast('场景名称已修改');
+      } else {
+        showToast(data.error || '修改失败', 'error');
+      }
+    });
+  }
+
+  function saveNewPreset() {
+    const defaultName = `自定义场景 ${presetsList.length + 1}`;
+    const name = prompt('请输入新场景名称：', defaultName);
+    if (!name || !name.trim()) return;
+
+    const config = collectConfig();
+    fetch('/api/presets/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim(), config })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        presetsList = data.presets;
+        currentPresetId = data.activePresetId;
+        el.presetSelect.dataset.selectedId = currentPresetId;
+        renderPresetSelect();
+        showToast('新场景已创建并成功上屏！');
+      } else {
+        showToast(data.error || '保存场景失败', 'error');
+      }
+    });
+  }
+
+  function deletePreset() {
+    const selectedId = el.presetSelect.value;
+    const target = presetsList.find(p => p.id === selectedId);
+    if (!target) return;
+
+    if (presetsList.length <= 1) {
+      showToast('无法删除唯一的预设场景', 'error');
+      return;
+    }
+
+    if (!confirm(`确定要删除场景 "${target.name}" 吗？`)) return;
+
+    fetch(`/api/presets/${selectedId}`, {
+      method: 'DELETE'
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        presetsList = data.presets;
+        currentPresetId = data.activePresetId;
+        delete el.presetSelect.dataset.selectedId;
+        renderPresetSelect();
+        onPresetSelectChange();
+        showToast('预设场景已删除');
+      } else {
+        showToast(data.error || '删除失败', 'error');
+      }
+    });
   }
 
   function setupUploadZone(zone, fileInput, url, onSuccess) {

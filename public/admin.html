@@ -74,6 +74,28 @@
     </div>
 
     <div class="controls-section">
+      <!-- 预设场景管理 -->
+      <div class="control-panel preset-panel">
+        <div class="panel-header">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          <h3>预设场景管理</h3>
+        </div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label>当前生效场景</label>
+            <div class="preset-select-wrapper">
+              <select id="preset-select"></select>
+            </div>
+          </div>
+          <div class="preset-actions">
+            <button id="btn-apply-preset" class="btn btn-primary" title="应用选中的场景到屏幕">切换生效</button>
+            <button id="btn-rename-preset" class="btn" title="修改当前场景名称">重命名</button>
+            <button id="btn-save-new-preset" class="btn" title="将当前编辑内容另存为新场景">另存为新场景</button>
+            <button id="btn-delete-preset" class="btn btn-danger" title="删除场景">删除</button>
+          </div>
+        </div>
+      </div>
+
       <!-- 文字设置 -->
       <div class="control-panel">
         <div class="panel-header">

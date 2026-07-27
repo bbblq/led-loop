@@ -249,6 +249,21 @@ body {
   overflow: hidden;
   backdrop-filter: blur(10px);
 }
+.preset-panel {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, rgba(30,30,70,0.9), rgba(20,20,50,0.8));
+  border: 1px solid var(--border-focus);
+}
+.preset-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+.preset-actions .btn {
+  flex: 1;
+  min-width: 120px;
+}
 .panel-header {
   padding: 15px 20px;
   border-bottom: 1px solid var(--border-color);

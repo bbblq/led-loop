@@ -1,20 +1,53 @@
 {
-  "text": "★ 欢迎光临 ★ Welcome ★",
-  "fontSize": 120,
-  "fontWeight": "700",
-  "fontFamily": "",
-  "textColor": "#ffffff",
-  "textGap": 200,
-  "textGlow": true,
-  "textShadow": false,
-  "textOutline": false,
-  "outlineColor": "#000000",
-  "scrollSpeed": 3,
-  "textVertical": 50,
-  "bgType": "gradient-flow",
-  "bgColor1": "#0a0a2e",
-  "bgColor2": "#1a1a4e",
-  "bgSpeed": 1,
-  "bgVideo": "",
+  "activePresetId": "preset-1",
+  "presets": [
+    {
+      "id": "preset-1",
+      "name": "预设 1 (欢迎模式)",
+      "config": {
+        "text": "★ 欢迎光临 ★ Welcome ★",
+        "fontSize": 120,
+        "fontWeight": "700",
+        "fontFamily": "",
+        "textColor": "#ffffff",
+        "textGap": 200,
+        "textGlow": true,
+        "textShadow": false,
+        "textOutline": false,
+        "outlineColor": "#000000",
+        "scrollSpeed": 3,
+        "textVertical": 50,
+        "bgType": "flame",
+        "bgColor1": "#0a0a2e",
+        "bgColor2": "#1a1a4e",
+        "bgSpeed": 1,
+        "bgVideo": "",
+        "bgVideoUrl": ""
+      }
+    },
+    {
+      "id": "preset-2",
+      "name": "预设 2 (特惠活动)",
+      "config": {
+        "text": "🔥 精彩活动进行中 ★ 全场特惠 🔥",
+        "fontSize": 130,
+        "fontWeight": "900",
+        "fontFamily": "",
+        "textColor": "#ffe600",
+        "textGap": 180,
+        "textGlow": true,
+        "textShadow": true,
+        "textOutline": true,
+        "outlineColor": "#ff0000",
+        "scrollSpeed": 4,
+        "textVertical": 50,
+        "bgType": "neon-pulse",
+        "bgColor1": "#240046",
+        "bgColor2": "#7b2cbf",
+        "bgSpeed": 1.5,
+        "bgVideo": ""
+      }
+    }
+  ],
   "password": "admin"
 }
