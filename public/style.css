@@ -249,20 +249,40 @@ body {
   overflow: hidden;
   backdrop-filter: blur(10px);
 }
-.preset-panel {
-  grid-column: 1 / -1;
-  background: linear-gradient(135deg, rgba(30,30,70,0.9), rgba(20,20,50,0.8));
-  border: 1px solid var(--border-focus);
-}
-.preset-actions {
+.preset-header-group {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 10px;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 4px 10px;
+  border-radius: 30px;
+  border: 1px solid var(--border-color);
+  margin-right: 10px;
 }
-.preset-actions .btn {
-  flex: 1;
-  min-width: 120px;
+.preset-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.preset-header-select {
+  background: rgba(30, 30, 70, 0.9);
+  border: 1px solid var(--border-focus);
+  color: var(--text-main);
+  border-radius: 16px;
+  padding: 4px 10px;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+  max-width: 180px;
+}
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 14px;
+}
+.btn-sm.btn-icon {
+  padding: 4px 6px;
+  font-size: 12px;
 }
 .panel-header {
   padding: 15px 20px;
