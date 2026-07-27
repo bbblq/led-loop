@@ -1,0 +1,20 @@
+{
+  "text": "★ 欢迎光临 ★ Welcome ★",
+  "fontSize": 120,
+  "fontWeight": "700",
+  "fontFamily": "",
+  "textColor": "#ffffff",
+  "textGap": 200,
+  "textGlow": true,
+  "textShadow": false,
+  "textOutline": false,
+  "outlineColor": "#000000",
+  "scrollSpeed": 3,
+  "textVertical": 50,
+  "bgType": "gradient-flow",
+  "bgColor1": "#0a0a2e",
+  "bgColor2": "#1a1a4e",
+  "bgSpeed": 1,
+  "bgVideo": "",
+  "password": "admin"
+}

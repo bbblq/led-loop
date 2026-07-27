@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LED环形屏 - 后台管理</title>
+  <!-- Google Fonts: Inter + Noto Sans SC -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <!-- Login Overlay -->
+  <div id="login-overlay" class="login-overlay">
+    <div class="login-card">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom:20px;stroke:#6366f1;">
+        <rect x="2" y="6" width="20" height="12" rx="2" ry="2"></rect>
+        <path d="M12 12h.01"></path>
+        <path d="M17 12h.01"></path>
+        <path d="M7 12h.01"></path>
+      </svg>
+      <h2>LED 环形屏管理系统</h2>
+      <input type="password" id="login-password" placeholder="请输入管理密码" />
+      <button id="btn-login" class="btn btn-primary btn-large">登录</button>
+      <span id="login-error"></span>
+    </div>
+  </div>
+
+  <!-- App Container -->
+  <div id="app-container" class="app-container">
+    <header class="app-header">
+      <div class="header-left">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="stroke:var(--accent-primary);">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+          <polyline points="7.5 4.21 12 6.81 16.5 4.21"></polyline>
+          <polyline points="7.5 19.79 7.5 14.6 3 12"></polyline>
+          <polyline points="21 12 16.5 14.6 16.5 19.79"></polyline>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+          <line x1="12" y1="22.08" x2="12" y2="12"></line>
+        </svg>
+        <div class="title-wrapper">
+          <h1>LED 环形屏信息流生成器</h1>
+          <span class="powered-by">Powered by <a href="https://github.com/bbblq/led-loop" target="_blank" rel="noopener noreferrer">bbblq</a></span>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="status-dot" id="status-dot" title="已连接"></div>
+        <div class="resolution-badge">1920 × 800</div>
+        <button id="btn-save" class="btn btn-success">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+          保存配置
+        </button>
+      </div>
+    </header>
+
+    <div class="preview-section">
+      <div class="preview-header">
+        <h2>实时预览</h2>
+        <div class="preview-controls">
+          <button id="btn-play" class="btn btn-icon" title="播放/暂停">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          </button>
+          <button id="btn-fullscreen" class="btn btn-icon" title="全屏预览">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+          </button>
+        </div>
+      </div>
+      <div class="canvas-wrapper" id="canvas-wrapper">
+        <canvas id="preview-canvas" width="1920" height="800"></canvas>
+        <video id="bg-video" loop muted playsinline crossorigin="anonymous"></video>
+        <div id="canvas-overlay">点击播放预览</div>
+      </div>
+    </div>
+
+    <div class="controls-section">
+      <!-- 文字设置 -->
+      <div class="control-panel">
+        <div class="panel-header">
+          <svg viewBox="0 0 24 24"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>
+          <h3>文字设置</h3>
+        </div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label>显示内容</label>
+            <textarea id="input-text" rows="3">★ 欢迎光临 ★ Welcome ★</textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>字号大小</label>
+              <div class="range-wrapper">
+                <input type="range" id="font-size" min="40" max="300" value="120">
+                <span class="range-val">120</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>字体粗细</label>
+              <select id="font-weight">
+                <option value="300">300 (细)</option>
+                <option value="400">400 (正常)</option>
+                <option value="500">500 (中等)</option>
+                <option value="700">700 (粗)</option>
+                <option value="900" selected>900 (极粗)</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>文字颜色</label>
+              <div class="color-picker-wrapper">
+                <input type="color" id="text-color" value="#ffffff">
+                <span class="hex-val">#ffffff</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>文字间距</label>
+              <div class="range-wrapper">
+                <input type="range" id="text-gap" min="50" max="800" value="200">
+                <span class="range-val">200</span>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>字体选择</label>
+            <select id="font-family">
+              <option value="">默认字体</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>文字特效</label>
+            <div class="checkbox-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="text-glow" checked>
+                <div class="checkmark"></div> 发光
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="text-shadow">
+                <div class="checkmark"></div> 阴影
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="text-outline">
+                <div class="checkmark"></div> 描边
+              </label>
+            </div>
+          </div>
+          <div class="form-group" id="outline-color-group" style="display:none;">
+            <label>描边颜色</label>
+            <div class="color-picker-wrapper">
+              <input type="color" id="outline-color" value="#000000">
+              <span class="hex-val">#000000</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 速度设置 -->
+      <div class="control-panel">
+        <div class="panel-header">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <h3>速度设置</h3>
+        </div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label>滚动速度 (x倍)</label>
+            <div class="range-wrapper">
+              <input type="range" id="scroll-speed" min="0.5" max="10" step="0.5" value="3">
+              <span class="range-val">3</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>垂直位置 (%)</label>
+            <div class="range-wrapper">
+              <input type="range" id="text-vertical" min="0" max="100" value="50">
+              <span class="range-val">50</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 背景设置 -->
+      <div class="control-panel">
+        <div class="panel-header">
+          <svg viewBox="0 0 24 24"><path d="M12 2.69l5.66 4.2c3.27 2.43 4.13 6.94 1.94 10.4-1.92 3-5.26 4.71-8.7 4.71H9a8 8 0 0 1-8-8c0-3.32 1.91-6.32 4.98-7.79z"/></svg>
+          <h3>背景设置</h3>
+        </div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label>背景效果</label>
+            <div class="bg-type-grid" id="bg-type-grid">
+              <div class="bg-type-btn active" data-type="gradient-flow">流光渐变</div>
+              <div class="bg-type-btn" data-type="particles">星空粒子</div>
+              <div class="bg-type-btn" data-type="wave">波浪动效</div>
+              <div class="bg-type-btn" data-type="solid">纯色背景</div>
+              <div class="bg-type-btn" data-type="matrix">科技矩阵</div>
+              <div class="bg-type-btn" data-type="aurora">极光效果</div>
+              <div class="bg-type-btn" data-type="neon-pulse">霓虹脉冲</div>
+              <div class="bg-type-btn" data-type="nebula">星云漫游</div>
+              <div class="bg-type-btn" data-type="cyber-grid">赛博网格</div>
+              <div class="bg-type-btn" data-type="flame">火焰效果</div>
+              <div class="bg-type-btn" data-type="video">视频背景</div>
+            </div>
+          </div>
+          <div class="form-group" id="bg-video-select-group" style="display:none;">
+            <label>选择视频</label>
+            <select id="bg-video-select">
+              <option value="">(请上传视频)</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>背景颜色 1</label>
+              <div class="color-picker-wrapper">
+                <input type="color" id="bg-color1" value="#0f0c29">
+                <span class="hex-val">#0f0c29</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>背景颜色 2</label>
+              <div class="color-picker-wrapper">
+                <input type="color" id="bg-color2" value="#24243e">
+                <span class="hex-val">#24243e</span>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>动效速度</label>
+            <div class="range-wrapper">
+              <input type="range" id="bg-speed" min="0.1" max="5" step="0.1" value="1">
+              <span class="range-val">1</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 字体管理 -->
+      <div class="control-panel">
+        <div class="panel-header">
+          <svg viewBox="0 0 24 24"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+          <h3>字体管理</h3>
+        </div>
+        <div class="panel-body">
+          <div class="upload-zone" id="font-upload-zone">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="stroke:var(--accent-primary);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <p>拖拽字体文件到此处，或点击上传</p>
+            <span class="subtitle">支持 .ttf .otf .woff .woff2</span>
+            <input type="file" id="font-file-input" accept=".ttf,.otf,.woff,.woff2" style="display:none;">
+          </div>
+          <div class="file-list" id="font-list"></div>
+        </div>
+      </div>
+
+      <!-- 视频背景管理 -->
+      <div class="control-panel">
+        <div class="panel-header">
+          <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>
+          <h3>视频背景管理</h3>
+        </div>
+        <div class="panel-body">
+          <div class="upload-zone" id="video-upload-zone">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="stroke:var(--accent-primary);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <p>拖拽视频文件到此处，或点击上传</p>
+            <span class="subtitle">支持 .mp4 .webm</span>
+            <input type="file" id="video-file-input" accept=".mp4,.webm" style="display:none;">
+          </div>
+          <div class="file-list" id="video-list"></div>
+        </div>
+      </div>
+
+      <!-- 录制导出 -->
+      <div class="control-panel">
+        <div class="panel-header">
+          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <h3>录制导出</h3>
+        </div>
+        <div class="panel-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label>录制时长 (秒)</label>
+              <input type="number" id="record-duration" min="1" max="300" value="10">
+            </div>
+            <div class="form-group">
+              <label>帧率 (FPS)</label>
+              <select id="record-fps">
+                <option value="24">24</option>
+                <option value="30" selected>30</option>
+                <option value="60">60</option>
+              </select>
+            </div>
+          </div>
+          <button id="btn-record" class="btn btn-primary btn-large">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+            开始录制 MP4
+          </button>
+          <div id="record-progress">
+            <div class="progress-header">
+              <span id="record-status-text">准备录制...</span>
+              <span id="record-percent">0%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="record-fill"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.min.js"></script>
+  <script src="/renderer.js"></script>
+  <script src="/admin.js"></script>
+</body>
+</html>

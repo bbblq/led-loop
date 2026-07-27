@@ -1,0 +1,8 @@
+node_modules
+npm-debug.log
+.DS_Store
+uploads/*
+!uploads/fonts/.gitkeep
+!uploads/videos/.gitkeep
+data/*
+!data/config.json

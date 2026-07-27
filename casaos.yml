@@ -1,0 +1,41 @@
+name: led-loop
+services:
+  led-loop:
+    image: bbblq/led-loop:latest
+    container_name: led-loop
+    restart: unless-stopped
+    ports:
+      - target: 3000
+        published: "3000"
+        protocol: tcp
+    volumes:
+      - type: bind
+        source: /DATA/AppData/led-loop/data
+        target: /app/data
+      - type: bind
+        source: /DATA/AppData/led-loop/uploads
+        target: /app/uploads
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+x-casaos:
+  architectures:
+    - amd64
+    - arm64
+  main: led-loop
+  author: bbblq
+  category: Media
+  port_map: "3000"
+  scheme: http
+  title:
+    custom: LED 环形屏信息流生成器
+    en_us: LED Cylindrical Display Stream Generator
+    zh_cn: LED 环形屏信息流生成器
+  tagline:
+    en_us: Web App for 1920x800 Cylindrical LED Screens with Seamless Horizontal Scrolling
+    zh_cn: 专为 1920x800 圆柱形 LED 屏打造的横向无缝循环信息流生成器
+  description:
+    en_us: Generate 1920x800 seamless horizontal text stream videos and live displays for cylindrical LED screens. Supports custom fonts, video backgrounds, 11 animated backgrounds, MP4 export, and remote management.
+    zh_cn: 专为 1920x800 圆柱形 LED 大屏设计的横向移动文字信息流生成与展示系统。完美解决圆柱左右接缝的连续流动问题。支持自定义字体、视频背景、11 种炫酷动效背景、MP4 导出以及独立展示/管理页面。
+  index: /
+  developer: bbblq
