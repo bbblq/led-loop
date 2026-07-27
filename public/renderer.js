@@ -92,6 +92,10 @@ window.LEDRenderer = class LEDRenderer {
 
   start() {
     if (this._isPlaying) return;
+    if (this.animationId) {
+      cancelAnimationFrame(this.animationId);
+      this.animationId = null;
+    }
     this._isPlaying = true;
     this.lastTime = performance.now();
     this.animationId = requestAnimationFrame(this.animate);
@@ -415,32 +419,37 @@ window.LEDRenderer = class LEDRenderer {
     ctx.textBaseline = 'middle';
     
     const textW = ctx.measureText(cfg.text).width;
+    if (textW <= 0) return;
+
     const desiredSegment = textW + cfg.textGap;
     
-    // Segment width calculation for 1920px cylinder:
-    // Ensures copies repeat seamlessly around the 360-degree cylinder without overlapping
     let segmentWidth;
+    let count = 1;
     if (desiredSegment >= w) {
       segmentWidth = Math.max(desiredSegment, w);
     } else {
-      const count = Math.max(1, Math.floor(w / desiredSegment));
+      count = Math.max(1, Math.floor(w / desiredSegment));
       segmentWidth = w / count;
     }
     
-    // Normalize offset to (-segmentWidth, 0]
+    // Normalize offset to [0, segmentWidth)
     const offset = ((this.textOffsetX % segmentWidth) + segmentWidth) % segmentWidth;
     const yPos = (cfg.textVertical / 100) * h;
     
     // Set up text styles
     ctx.fillStyle = cfg.textColor;
     
-    if (cfg.textGlow) {
+    const hasGlow = cfg.textGlow;
+    const hasShadow = cfg.textShadow && !hasGlow;
+    const hasOutline = cfg.textOutline;
+
+    if (hasGlow) {
       const rgb = this.hexToRgb(cfg.textColor);
       ctx.shadowColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.6)`;
       ctx.shadowBlur = 25;
       ctx.shadowOffsetX = 0;
       ctx.shadowOffsetY = 0;
-    } else if (cfg.textShadow) {
+    } else if (hasShadow) {
       ctx.shadowColor = '#000000';
       ctx.shadowBlur = 10;
       ctx.shadowOffsetX = 3;
@@ -450,9 +459,8 @@ window.LEDRenderer = class LEDRenderer {
       ctx.shadowColor = 'transparent';
     }
 
-    const drawSingleCopy = (x) => {
-      // Outline stroke
-      if (cfg.textOutline) {
+    const drawAt = (x) => {
+      if (hasOutline) {
         ctx.strokeStyle = cfg.outlineColor;
         ctx.lineWidth = Math.max(2, cfg.fontSize * 0.04);
         ctx.lineJoin = 'round';
@@ -462,26 +470,30 @@ window.LEDRenderer = class LEDRenderer {
         ctx.shadowColor = 'transparent';
         
         ctx.strokeText(cfg.text, x, yPos);
-        if (x + textW > w) ctx.strokeText(cfg.text, x - w, yPos);
-        if (x < 0 && x + textW > 0) ctx.strokeText(cfg.text, x + w, yPos);
         
         ctx.shadowBlur = tempBlur;
         ctx.shadowColor = tempColor;
       }
-      
-      // Text fill
       ctx.fillText(cfg.text, x, yPos);
-      if (x + textW > w) ctx.fillText(cfg.text, x - w, yPos);
-      if (x < 0 && x + textW > 0) ctx.fillText(cfg.text, x + w, yPos);
     };
 
-    // Iterate segments across the visible 0..1920 range
-    let x = -offset;
-    while (x < w) {
-      if (x + textW > 0) {
-        drawSingleCopy(x);
+    const renderSegmentAt = (x) => {
+      // Draw main segment
+      drawAt(x);
+      // Wrap overflow to right if part is off left edge
+      if (x < 0 && x + textW > 0) {
+        drawAt(x + w);
       }
-      x += segmentWidth;
+      // Wrap overflow to left if part is off right edge
+      if (x < w && x + textW > w) {
+        drawAt(x - w);
+      }
+    };
+
+    // Draw the count segments around the 1920px cylinder
+    for (let k = 0; k < count; k++) {
+      const x = -offset + k * segmentWidth;
+      renderSegmentAt(x);
     }
   }
 }
