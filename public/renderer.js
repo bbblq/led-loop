@@ -421,19 +421,11 @@ window.LEDRenderer = class LEDRenderer {
     const textW = ctx.measureText(cfg.text).width;
     if (textW <= 0) return;
 
-    const desiredSegment = textW + cfg.textGap;
+    // Effective period around the cylinder: at least w (1920px) to prevent overlapping
+    const effectivePeriod = Math.max(textW + cfg.textGap, w);
     
-    let segmentWidth;
-    let count = 1;
-    if (desiredSegment >= w) {
-      segmentWidth = Math.max(desiredSegment, w);
-    } else {
-      count = Math.max(1, Math.floor(w / desiredSegment));
-      segmentWidth = w / count;
-    }
-    
-    // Normalize offset to [0, segmentWidth)
-    const offset = ((this.textOffsetX % segmentWidth) + segmentWidth) % segmentWidth;
+    // Normalize offset to [0, effectivePeriod)
+    const offset = ((this.textOffsetX % effectivePeriod) + effectivePeriod) % effectivePeriod;
     const yPos = (cfg.textVertical / 100) * h;
     
     // Set up text styles
@@ -477,23 +469,15 @@ window.LEDRenderer = class LEDRenderer {
       ctx.fillText(cfg.text, x, yPos);
     };
 
-    const renderSegmentAt = (x) => {
-      // Draw main segment
-      drawAt(x);
-      // Wrap overflow to right if part is off left edge
-      if (x < 0 && x + textW > 0) {
-        drawAt(x + w);
+    // Draw all text copies that intersect the screen range [0, w]
+    let k = Math.floor(- (offset + textW) / effectivePeriod);
+    while (true) {
+      const x = -offset + k * effectivePeriod;
+      if (x >= w) break;
+      if (x + textW > 0) {
+        drawAt(x);
       }
-      // Wrap overflow to left if part is off right edge
-      if (x < w && x + textW > w) {
-        drawAt(x - w);
-      }
-    };
-
-    // Draw the count segments around the 1920px cylinder
-    for (let k = 0; k < count; k++) {
-      const x = -offset + k * segmentWidth;
-      renderSegmentAt(x);
+      k++;
     }
   }
 }
