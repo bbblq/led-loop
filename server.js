@@ -54,17 +54,38 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
+const defaultConfig = {
+  text: "★ 欢迎光临 ★ Welcome ★",
+  fontSize: 120,
+  fontWeight: "700",
+  fontFamily: "",
+  textColor: "#ffffff",
+  textGap: 200,
+  textGlow: true,
+  textShadow: false,
+  textOutline: false,
+  outlineColor: "#000000",
+  scrollSpeed: 3,
+  textVertical: 50,
+  bgType: "gradient-flow",
+  bgColor1: "#0a0a2e",
+  bgColor2: "#1a1a4e",
+  bgSpeed: 1,
+  bgVideo: "",
+  password: "admin"
+};
+
 // 读取配置
 const readConfig = () => {
   try {
     if (fs.existsSync(configFile)) {
       const data = fs.readFileSync(configFile, 'utf8');
-      return JSON.parse(data);
+      return { ...defaultConfig, ...JSON.parse(data) };
     }
   } catch (error) {
     console.error('Error reading config file:', error);
   }
-  return {}; // 默认空对象
+  return { ...defaultConfig };
 };
 
 // 保存配置
@@ -84,8 +105,10 @@ const saveConfig = (config) => {
 app.post('/api/login', (req, res) => {
   const { password } = req.body;
   const config = readConfig();
-  
-  if (password === config.password) {
+  const targetPassword = String(config.password || 'admin').trim();
+  const inputPassword = password ? String(password).trim() : '';
+
+  if (inputPassword === targetPassword) {
     req.session.authenticated = true;
     res.json({ success: true });
   } else {
