@@ -415,24 +415,31 @@ window.LEDRenderer = class LEDRenderer {
     ctx.textBaseline = 'middle';
     
     const textW = ctx.measureText(cfg.text).width;
+    const desiredSegment = textW + cfg.textGap;
     
-    // Cylindrical Wrapping Logic
-    // The text segment includes the text and the gap.
-    // It must be at least as wide as the canvas so there are no empty segments on screen if text is small.
-    const segmentWidth = Math.max(textW + cfg.textGap, w);
+    // Segment width calculation for 1920px cylinder:
+    // Ensures copies repeat seamlessly around the 360-degree cylinder without overlapping
+    let segmentWidth;
+    if (desiredSegment >= w) {
+      segmentWidth = Math.max(desiredSegment, w);
+    } else {
+      const count = Math.max(1, Math.floor(w / desiredSegment));
+      segmentWidth = w / count;
+    }
     
-    // Normalize offset
+    // Normalize offset to (-segmentWidth, 0]
     const offset = ((this.textOffsetX % segmentWidth) + segmentWidth) % segmentWidth;
-    
     const yPos = (cfg.textVertical / 100) * h;
     
-    // Set up styles
+    // Set up text styles
     ctx.fillStyle = cfg.textColor;
     
     if (cfg.textGlow) {
       const rgb = this.hexToRgb(cfg.textColor);
       ctx.shadowColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.6)`;
       ctx.shadowBlur = 25;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
     } else if (cfg.textShadow) {
       ctx.shadowColor = '#000000';
       ctx.shadowBlur = 10;
@@ -442,45 +449,39 @@ window.LEDRenderer = class LEDRenderer {
       ctx.shadowBlur = 0;
       ctx.shadowColor = 'transparent';
     }
-    
-    if (cfg.textOutline) {
-      ctx.strokeStyle = cfg.outlineColor;
-      ctx.lineWidth = Math.max(2, cfg.fontSize * 0.04);
-      // Disable shadow for outline stroke to avoid double shadow
-      const tempShadowBlur = ctx.shadowBlur;
-      const tempShadowColor = ctx.shadowColor;
-      ctx.shadowBlur = 0;
-      ctx.shadowColor = 'transparent';
-      
-      const drawTextOutline = (x) => {
+
+    const drawSingleCopy = (x) => {
+      // Outline stroke
+      if (cfg.textOutline) {
+        ctx.strokeStyle = cfg.outlineColor;
+        ctx.lineWidth = Math.max(2, cfg.fontSize * 0.04);
+        ctx.lineJoin = 'round';
+        const tempBlur = ctx.shadowBlur;
+        const tempColor = ctx.shadowColor;
+        ctx.shadowBlur = 0;
+        ctx.shadowColor = 'transparent';
+        
         ctx.strokeText(cfg.text, x, yPos);
-      };
+        if (x + textW > w) ctx.strokeText(cfg.text, x - w, yPos);
+        if (x < 0 && x + textW > 0) ctx.strokeText(cfg.text, x + w, yPos);
+        
+        ctx.shadowBlur = tempBlur;
+        ctx.shadowColor = tempColor;
+      }
       
-      this.drawWrappedLines(-offset, textW, w, drawTextOutline);
-      
-      ctx.shadowBlur = tempShadowBlur;
-      ctx.shadowColor = tempShadowColor;
-    }
-    
-    const drawTextFill = (x) => {
+      // Text fill
       ctx.fillText(cfg.text, x, yPos);
+      if (x + textW > w) ctx.fillText(cfg.text, x - w, yPos);
+      if (x < 0 && x + textW > 0) ctx.fillText(cfg.text, x + w, yPos);
     };
-    
-    this.drawWrappedLines(-offset, textW, w, drawTextFill);
-  }
-  
-  drawWrappedLines(baseX, textW, canvasW, drawFn) {
-    // Draw at standard position
-    drawFn(baseX);
-    
-    // If it overflows right, draw at x - canvasW (wrapping around the cylinder to the left side)
-    if (baseX + textW > canvasW) {
-      drawFn(baseX - canvasW);
-    }
-    
-    // If it overflows left, draw at x + canvasW (wrapping around the cylinder to the right side)
-    if (baseX < 0) {
-      drawFn(baseX + canvasW);
+
+    // Iterate segments across the visible 0..1920 range
+    let x = -offset;
+    while (x < w) {
+      if (x + textW > 0) {
+        drawSingleCopy(x);
+      }
+      x += segmentWidth;
     }
   }
 }
