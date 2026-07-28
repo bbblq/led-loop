@@ -420,6 +420,33 @@ input[type="color"]::-webkit-color-swatch {
   color: var(--text-main);
   text-transform: uppercase;
 }
+.btn-random-color {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 14px;
+  margin-top: 6px;
+  background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(59,130,246,0.15));
+  border: 1px solid rgba(139,92,246,0.4);
+  border-radius: var(--radius-sm);
+  color: #c4b5fd;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  letter-spacing: 0.03em;
+}
+.btn-random-color:hover {
+  background: linear-gradient(135deg, rgba(139,92,246,0.3), rgba(59,130,246,0.3));
+  border-color: rgba(139,92,246,0.7);
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(139,92,246,0.3);
+}
+.btn-random-color:active {
+  transform: translateY(0);
+}
 
 /* Checkbox */
 .checkbox-group {

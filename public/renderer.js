@@ -32,11 +32,18 @@ window.LEDRenderer = class LEDRenderer {
     
     // Internal state
     this.textOffsetX = 0;
+    this.bgOffsetX = 0;
     this.bgTime = 0;
     this._isPlaying = false;
     this.animationId = null;
     this.lastTime = 0;
     this.videoEl = null;
+
+    // Offscreen canvas for seamless background cylinder scrolling
+    this.offscreen = document.createElement('canvas');
+    this.offscreen.width = this.canvasW;
+    this.offscreen.height = this.canvasH;
+    this.offscreenCtx = this.offscreen.getContext('2d');
 
     // Particles init
     this.particles = [];
@@ -141,10 +148,24 @@ window.LEDRenderer = class LEDRenderer {
     // Update internal timers
     this.bgTime += dt * cfg.bgSpeed;
     this.textOffsetX += cfg.scrollSpeed * (dt / 16.666); // approx 60fps base
+    this.bgOffsetX += cfg.scrollSpeed * (dt / 16.666);
 
-    // Render Background
+    // Render Background to offscreen canvas, then blit with cylinder wrap
     ctx.save();
-    this.renderBackground(ctx, w, h, this.bgTime, cfg.bgSpeed, cfg.bgColor1, cfg.bgColor2, cfg.bgType);
+    if (cfg.bgType === 'video' || cfg.bgType === 'solid') {
+      // Non-scrolling types rendered directly
+      this.renderBackground(ctx, w, h, this.bgTime, cfg.bgSpeed, cfg.bgColor1, cfg.bgColor2, cfg.bgType);
+    } else {
+      const oCtx = this.offscreenCtx;
+      oCtx.clearRect(0, 0, w, h);
+      this.renderBackground(oCtx, w, h, this.bgTime, cfg.bgSpeed, cfg.bgColor1, cfg.bgColor2, cfg.bgType);
+      // Cylindrical blit: offset wraps like text
+      const offset = ((this.bgOffsetX % w) + w) % w;
+      // Draw shifted copy (entering from right)
+      ctx.drawImage(this.offscreen, -offset, 0);
+      // Draw second copy to fill the gap on the right
+      ctx.drawImage(this.offscreen, w - offset, 0);
+    }
     ctx.restore();
 
     // Render Text

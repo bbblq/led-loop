@@ -67,7 +67,9 @@
     recordProgress: document.getElementById('record-progress'),
     recordStatusText: document.getElementById('record-status-text'),
     recordPercent: document.getElementById('record-percent'),
-    recordFill: document.getElementById('record-fill')
+    recordFill: document.getElementById('record-fill'),
+
+    btnRandomColor: document.getElementById('btn-random-color')
   };
 
   let activeBgType = 'gradient-flow';
@@ -159,6 +161,9 @@
 
     // Save
     el.btnSave.addEventListener('click', saveConfig);
+
+    // Random color button
+    el.btnRandomColor.addEventListener('click', randomizeColors);
 
     // Play/Pause
     const togglePlay = () => {
@@ -421,6 +426,44 @@
       el.bgVideoSelect.value = config.bgVideoUrl;
       el.videoBg.src = config.bgVideoUrl ? `/uploads/videos/${config.bgVideoUrl}` : '';
     }
+  }
+
+  // Harmonious random color palette generator
+  function randomizeColors() {
+    // Pick a random base hue, then derive a complementary or split-complementary second hue
+    const hue1 = Math.floor(Math.random() * 360);
+    const strategy = Math.floor(Math.random() * 4);
+    let hue2;
+    if (strategy === 0) hue2 = (hue1 + 180) % 360;          // complementary
+    else if (strategy === 1) hue2 = (hue1 + 150) % 360;     // split-complementary
+    else if (strategy === 2) hue2 = (hue1 + 210) % 360;     // split-complementary 2
+    else hue2 = (hue1 + 120) % 360;                          // triadic
+
+    // Dark saturated for LED backgrounds
+    const s1 = 70 + Math.floor(Math.random() * 30);
+    const l1 = 8 + Math.floor(Math.random() * 14);
+    const s2 = 60 + Math.floor(Math.random() * 30);
+    const l2 = 12 + Math.floor(Math.random() * 18);
+
+    const hex1 = hslToHex(hue1, s1, l1);
+    const hex2 = hslToHex(hue2, s2, l2);
+
+    el.bgColor1.value = hex1;
+    el.bgColor1.nextElementSibling.textContent = hex1;
+    el.bgColor2.value = hex2;
+    el.bgColor2.nextElementSibling.textContent = hex2;
+    syncConfig();
+  }
+
+  function hslToHex(h, s, l) {
+    s /= 100; l /= 100;
+    const a = s * Math.min(l, 1 - l);
+    const f = n => {
+      const k = (n + h / 30) % 12;
+      const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+      return Math.round(255 * color).toString(16).padStart(2, '0');
+    };
+    return `#${f(0)}${f(8)}${f(4)}`;
   }
 
   function syncConfig() {
