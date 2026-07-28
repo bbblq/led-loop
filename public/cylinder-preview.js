@@ -16,7 +16,7 @@ window.CylinderPreview = class CylinderPreview {
     this.cylHeight  = 800 / S;                   // = 160 units
 
     this._isUserDragging = false;
-    this._userAutoRotateState = true;
+    this._userAutoRotateState = false;
 
     this._init();
   }
@@ -81,7 +81,7 @@ window.CylinderPreview = class CylinderPreview {
     /* ── Stars ── */
     this._addStars();
 
-    /* ── OrbitControls ── */
+    /* ── OrbitControls (Static cylinder by default, only text scrolls) ── */
     if (typeof THREE.OrbitControls === 'function') {
       this.controls = new THREE.OrbitControls(this.camera, dom);
       this.controls.enableDamping   = true;
@@ -89,7 +89,7 @@ window.CylinderPreview = class CylinderPreview {
       this.controls.minDistance     = 50;
       this.controls.maxDistance     = 300;
       this.controls.maxPolarAngle   = Math.PI * 0.75;
-      this.controls.autoRotate      = true;
+      this.controls.autoRotate      = false;
       this.controls.autoRotateSpeed = 0.5;
       this.controls.target.set(0, 0, 0);
       this.controls.update();
