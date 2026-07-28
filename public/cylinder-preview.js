@@ -31,7 +31,7 @@ window.CylinderPreview = class CylinderPreview {
 
     /* ── Camera ── */
     this.camera = new THREE.PerspectiveCamera(45, W / H, 0.5, 5000);
-    this.camera.position.set(0, 5, 105);
+    this.camera.position.set(0, 0, 210);
 
     /* ── WebGL Renderer (NoToneMapping for 1:1 exact canvas color matching) ── */
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
@@ -176,7 +176,7 @@ window.CylinderPreview = class CylinderPreview {
 
   /** Reset camera to default position & distance */
   resetCamera() {
-    this.camera.position.set(0, 5, 105);
+    this.camera.position.set(0, 0, 210);
     if (this.controls) {
       this.controls.target.set(0, 0, 0);
       this.controls.update();
