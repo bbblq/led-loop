@@ -72,9 +72,6 @@
     btnRandomColor: document.getElementById('btn-random-color'),
 
     // 3D Preview
-    btnView2d: document.getElementById('btn-view-2d'),
-    btnView3d: document.getElementById('btn-view-3d'),
-    controls3dGroup: document.getElementById('controls-3d-group'),
     btn3dRotate: document.getElementById('btn-3d-rotate'),
     btn3dReset: document.getElementById('btn-3d-reset'),
     cylinder3dWrapper: document.getElementById('cylinder-3d-wrapper')
@@ -84,7 +81,6 @@
   let presetsList = [];
   let currentPresetId = '';
   let cylinder3d = null;
-  let viewMode = '2d';
 
   function initApp() {
     if (renderer) return;
@@ -95,6 +91,11 @@
     loadFontList();
     loadVideoList();
     loadPresets();
+    
+    // Initialize 3D Cylinder Preview side-by-side with 2D Canvas
+    if (window.CylinderPreview && el.cylinder3dWrapper) {
+      cylinder3d = new CylinderPreview(el.cylinder3dWrapper, el.canvas);
+    }
     
     fetch('/api/config')
       .then(res => res.json())
@@ -201,10 +202,7 @@
       if (el.canvas.requestFullscreen) el.canvas.requestFullscreen();
     });
 
-    // 2D / 3D View Mode Toggle
-    el.btnView2d.addEventListener('click', () => switchViewMode('2d'));
-    el.btnView3d.addEventListener('click', () => switchViewMode('3d'));
-
+    // 3D Controls
     el.btn3dRotate.addEventListener('click', () => {
       if (cylinder3d) {
         const isRotating = cylinder3d.toggleAutoRotate();
@@ -450,36 +448,6 @@
     if (config.bgVideoUrl !== undefined) {
       el.bgVideoSelect.value = config.bgVideoUrl;
       el.videoBg.src = config.bgVideoUrl ? `/uploads/videos/${config.bgVideoUrl}` : '';
-    }
-  }
-
-  function switchViewMode(mode) {
-    viewMode = mode;
-    if (mode === '3d') {
-      el.canvasWrapper.style.display = 'none';
-      el.cylinder3dWrapper.style.display = 'block';
-      el.controls3dGroup.style.display = 'flex';
-      el.btnView2d.classList.remove('active');
-      el.btnView3d.classList.add('active');
-
-      if (!cylinder3d && window.CylinderPreview) {
-        cylinder3d = new CylinderPreview(el.cylinder3dWrapper, el.canvas);
-      } else if (cylinder3d) {
-        cylinder3d._onResize();
-      }
-
-      // Ensure renderer is active when in 3D mode
-      if (renderer && !renderer.isPlaying) {
-        renderer.start();
-        el.canvasWrapper.classList.add('playing');
-        el.btnPlay.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>';
-      }
-    } else {
-      el.canvasWrapper.style.display = 'block';
-      el.cylinder3dWrapper.style.display = 'none';
-      el.controls3dGroup.style.display = 'none';
-      el.btnView3d.classList.remove('active');
-      el.btnView2d.classList.add('active');
     }
   }
 

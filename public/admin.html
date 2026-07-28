@@ -66,30 +66,35 @@
       <div class="preview-header">
         <div class="preview-title-group">
           <h2>实时预览</h2>
-          <div class="view-mode-toggle">
-            <button id="btn-view-2d" class="btn-mode active">2D 展平</button>
-            <button id="btn-view-3d" class="btn-mode">🧊 3D 柱体</button>
-          </div>
+          <span class="preview-subtitle">2D 展平 &amp; 3D 柱体全景</span>
         </div>
         <div class="preview-controls">
-          <div id="controls-3d-group" class="controls-3d-group" style="display:none;">
-            <button id="btn-3d-rotate" class="btn btn-sm" title="切换自动旋转">🔄 自动旋转</button>
+          <div id="controls-3d-group" class="controls-3d-group">
+            <button id="btn-3d-rotate" class="btn btn-sm active" title="切换自动旋转">🔄 自动旋转</button>
             <button id="btn-3d-reset" class="btn btn-sm" title="重置视角">🎯 重置视角</button>
           </div>
           <button id="btn-play" class="btn btn-icon" title="播放/暂停">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
           </button>
-          <button id="btn-fullscreen" class="btn btn-icon" title="全屏预览">
+          <button id="btn-fullscreen" class="btn btn-icon" title="2D全屏预览">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
           </button>
         </div>
       </div>
-      <div class="canvas-wrapper" id="canvas-wrapper">
-        <canvas id="preview-canvas" width="1920" height="800"></canvas>
-        <video id="bg-video" loop muted playsinline crossorigin="anonymous"></video>
-        <div id="canvas-overlay">点击播放预览</div>
+      <div class="preview-grid">
+        <div class="preview-card">
+          <div class="preview-card-label">📐 2D 展平画面 (1920 × 800)</div>
+          <div class="canvas-wrapper" id="canvas-wrapper">
+            <canvas id="preview-canvas" width="1920" height="800"></canvas>
+            <video id="bg-video" loop muted playsinline crossorigin="anonymous"></video>
+            <div id="canvas-overlay">点击播放预览</div>
+          </div>
+        </div>
+        <div class="preview-card">
+          <div class="preview-card-label">🧊 3D 柱体实景包裹</div>
+          <div id="cylinder-3d-wrapper" class="cylinder-3d-wrapper"></div>
+        </div>
       </div>
-      <div id="cylinder-3d-wrapper" class="cylinder-3d-wrapper" style="display:none;"></div>
     </div>
 
     <div class="controls-section">
