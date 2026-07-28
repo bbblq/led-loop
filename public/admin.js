@@ -72,8 +72,6 @@
     btnRandomColor: document.getElementById('btn-random-color'),
 
     // 3D Preview
-    btn3dRotate: document.getElementById('btn-3d-rotate'),
-    btn3dReset: document.getElementById('btn-3d-reset'),
     cylinder3dWrapper: document.getElementById('cylinder-3d-wrapper')
   };
 
@@ -200,18 +198,6 @@
 
     el.btnFullscreen.addEventListener('click', () => {
       if (el.canvas.requestFullscreen) el.canvas.requestFullscreen();
-    });
-
-    // 3D Controls
-    el.btn3dRotate.addEventListener('click', () => {
-      if (cylinder3d) {
-        const isRotating = cylinder3d.toggleAutoRotate();
-        el.btn3dRotate.classList.toggle('active', isRotating);
-      }
-    });
-
-    el.btn3dReset.addEventListener('click', () => {
-      if (cylinder3d) cylinder3d.resetCamera();
     });
 
     // Upload Zones

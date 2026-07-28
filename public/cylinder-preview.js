@@ -1,7 +1,7 @@
 /**
  * CylinderPreview — real-time 3D LED cylinder visualiser
  * Uses Three.js r128 (global THREE namespace).
- * Uses MeshBasicMaterial + NoToneMapping for 100% 1:1 exact color fidelity matching 2D canvas.
+ * Displays a completely static physical LED cylinder; text and background scroll on its texture.
  */
 window.CylinderPreview = class CylinderPreview {
   constructor(container, ledCanvas) {
@@ -15,9 +15,6 @@ window.CylinderPreview = class CylinderPreview {
     this.cylRadius  = 1920 / (2 * Math.PI) / S; // ≈ 61.1 units
     this.cylHeight  = 800 / S;                   // = 160 units
 
-    this._isUserDragging = false;
-    this._userAutoRotateState = false;
-
     this._init();
   }
 
@@ -29,7 +26,7 @@ window.CylinderPreview = class CylinderPreview {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x02020f);
 
-    /* ── Camera ── */
+    /* ── Camera (Fixed static viewpoint) ── */
     this.camera = new THREE.PerspectiveCamera(45, W / H, 0.5, 5000);
     this.camera.position.set(0, 0, 210);
 
@@ -40,10 +37,6 @@ window.CylinderPreview = class CylinderPreview {
     this.renderer.toneMapping = THREE.NoToneMapping;
     this.container.appendChild(this.renderer.domElement);
 
-    const dom = this.renderer.domElement;
-    dom.style.cursor = 'grab';
-    dom.style.touchAction = 'none';
-
     /* ── LED Canvas Texture ── */
     this.texture = new THREE.CanvasTexture(this.ledCanvas);
     this.texture.wrapS   = THREE.ClampToEdgeWrapping;
@@ -51,7 +44,7 @@ window.CylinderPreview = class CylinderPreview {
     this.texture.minFilter = THREE.LinearFilter;
     this.texture.magFilter = THREE.LinearFilter;
 
-    /* ── Cylinder (MeshBasicMaterial = 100% exact 1:1 color accuracy) ── */
+    /* ── Cylinder Mesh ── */
     const geoOuter = new THREE.CylinderGeometry(
       this.cylRadius, this.cylRadius, this.cylHeight,
       256, 1, true
@@ -78,41 +71,8 @@ window.CylinderPreview = class CylinderPreview {
     bot.position.y = -this.cylHeight / 2;
     this.scene.add(bot);
 
-    /* ── Stars ── */
+    /* ── Background Stars ── */
     this._addStars();
-
-    /* ── OrbitControls (Static cylinder by default, only text scrolls) ── */
-    if (typeof THREE.OrbitControls === 'function') {
-      this.controls = new THREE.OrbitControls(this.camera, dom);
-      this.controls.enableDamping   = true;
-      this.controls.dampingFactor   = 0.08;
-      this.controls.minDistance     = 50;
-      this.controls.maxDistance     = 300;
-      this.controls.maxPolarAngle   = Math.PI * 0.75;
-      this.controls.autoRotate      = false;
-      this.controls.autoRotateSpeed = 0.5;
-      this.controls.target.set(0, 0, 0);
-      this.controls.update();
-
-      // Pause autoRotate on pointer drag so user mouse rotation is smooth & unimpeded
-      dom.addEventListener('pointerdown', () => {
-        this._isUserDragging = true;
-        dom.style.cursor = 'grabbing';
-        this._userAutoRotateState = this.controls.autoRotate;
-        this.controls.autoRotate = false;
-      });
-
-      const onPointerUp = () => {
-        if (this._isUserDragging) {
-          this._isUserDragging = false;
-          dom.style.cursor = 'grab';
-          this.controls.autoRotate = this._userAutoRotateState;
-        }
-      };
-
-      window.addEventListener('pointerup', onPointerUp);
-      window.addEventListener('pointercancel', onPointerUp);
-    }
 
     /* ── Resize handler ── */
     this._onResize = this._onResize.bind(this);
@@ -151,9 +111,6 @@ window.CylinderPreview = class CylinderPreview {
   _loop() {
     this._animId = requestAnimationFrame(this._loop);
     this.texture.needsUpdate = true;
-    if (this.controls) {
-      this.controls.update();
-    }
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -166,27 +123,9 @@ window.CylinderPreview = class CylinderPreview {
     this.renderer.setSize(W, H);
   }
 
-  /** Toggle auto-rotation; returns new state */
-  toggleAutoRotate() {
-    if (!this.controls) return false;
-    this._userAutoRotateState = !this._userAutoRotateState;
-    this.controls.autoRotate = this._userAutoRotateState;
-    return this.controls.autoRotate;
-  }
-
-  /** Reset camera to default position & distance */
-  resetCamera() {
-    this.camera.position.set(0, 0, 210);
-    if (this.controls) {
-      this.controls.target.set(0, 0, 0);
-      this.controls.update();
-    }
-  }
-
   destroy() {
     cancelAnimationFrame(this._animId);
     window.removeEventListener('resize', this._onResize);
-    if (this.controls) this.controls.dispose();
     this.renderer.dispose();
     if (this.renderer.domElement.parentNode) {
       this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);
