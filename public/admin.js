@@ -603,7 +603,8 @@
         const totalFrames = Math.round(totalMs / frameDurationMs);
 
         for (let i = 0; i < totalFrames; i++) {
-          renderer.renderFrame(frameDurationMs);
+          // Use phase-based rendering: every frame derived from exact phase, not accumulated state
+          renderer.renderLoopFrame(i, totalFrames);
           const vf = new VideoFrame(el.canvas, { timestamp: Math.round(i * 1000000 / fps) });
           encoder.encode(vf, { keyFrame: i % fps === 0 });
           vf.close();
@@ -630,14 +631,10 @@
       }
     }
 
-    // 方案 2: MediaRecorder — 实时录制精确循环时长
+    // 方案 2: MediaRecorder + rAF phase loop — real-time with exact phase rendering
     try {
       const wasPlaying = renderer.isPlaying;
-
-      // Reset offsets and restart for clean loop start
       renderer.stop();
-      renderer.resetOffsets();
-      renderer.start();
 
       const stream = el.canvas.captureStream(fps);
       const mimeTypes = [
@@ -662,21 +659,30 @@
         finishRecording(wasPlaying);
       };
 
-      recorder.start(100);
+      // Use rAF loop with phase-based rendering so background also loops perfectly
+      const totalFrames = Math.round(totalMs / (1000 / fps));
+      const startPerfTime = performance.now();
+      let rafId;
 
-      const startTime = Date.now();
-      const progressTimer = setInterval(() => {
-        const elapsed = Date.now() - startTime;
+      function rafLoop() {
+        const elapsed = performance.now() - startPerfTime;
+        if (elapsed >= totalMs) {
+          recorder.stop();
+          return;
+        }
+        const phase = (elapsed / totalMs) % 1;
+        const frameIndex = Math.round(phase * totalFrames);
+        renderer.renderLoopFrame(frameIndex, totalFrames);
+
         const pct = Math.min(100, Math.round((elapsed / totalMs) * 100));
         el.recordPercent.textContent = pct + '%';
         el.recordFill.style.width = pct + '%';
         el.recordStatusText.textContent = `录制中 ${pct}%`;
+        rafId = requestAnimationFrame(rafLoop);
+      }
 
-        if (elapsed >= totalMs) {
-          clearInterval(progressTimer);
-          recorder.stop();
-        }
-      }, 100);
+      recorder.start(100);
+      rafId = requestAnimationFrame(rafLoop);
 
     } catch (err) {
       console.error('MediaRecorder 录制失败:', err);

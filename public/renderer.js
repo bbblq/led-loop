@@ -38,6 +38,8 @@ window.LEDRenderer = class LEDRenderer {
     this.animationId = null;
     this.lastTime = 0;
     this.videoEl = null;
+    this._loopRenderMode = false;  // true during loop recording — disables stateful updates
+    this._cachedEffectivePeriod = null; // cached from computeLoopFrames
 
     // Offscreen canvas for seamless background cylinder scrolling
     this.offscreen = document.createElement('canvas');
@@ -215,8 +217,11 @@ window.LEDRenderer = class LEDRenderer {
 
         ctx.fillStyle = '#ffffff';
         for (let p of this.particles) {
-          p.x -= p.speedX * speed * 2;
-          if (p.x < 0) p.x += w;
+          // In loop-render mode, keep particles static in the tile so frame 0 === frame N
+          if (!this._loopRenderMode) {
+            p.x -= p.speedX * speed * 2;
+            if (p.x < 0) p.x += w;
+          }
           
           const alpha = (Math.sin(tSec * p.blinkSpeed * 100 + p.phase) + 1) / 2;
           ctx.globalAlpha = 0.2 + alpha * 0.8;
@@ -259,14 +264,17 @@ window.LEDRenderer = class LEDRenderer {
         ctx.font = '24px monospace';
         ctx.textAlign = 'center';
         for (let m of this.matrixChars) {
-          m.y += m.speedY * speed * 5;
-          if (m.y > h + 30) {
-            m.y = -30;
-            m.x = Math.random() * w;
-            m.char = String.fromCharCode(0x30A0 + Math.random() * 95);
-          }
-          if (Math.random() < 0.05) {
-            m.char = String.fromCharCode(0x30A0 + Math.random() * 95);
+          // In loop-render mode, keep chars static in the tile so frame 0 === frame N
+          if (!this._loopRenderMode) {
+            m.y += m.speedY * speed * 5;
+            if (m.y > h + 30) {
+              m.y = -30;
+              m.x = Math.random() * w;
+              m.char = String.fromCharCode(0x30A0 + Math.random() * 95);
+            }
+            if (Math.random() < 0.05) {
+              m.char = String.fromCharCode(0x30A0 + Math.random() * 95);
+            }
           }
           const alpha = (Math.sin(tSec * 2 + m.phase) + 1) / 2;
           ctx.fillStyle = `rgba(0, 255, 0, ${0.3 + alpha * 0.7})`;
@@ -372,7 +380,8 @@ window.LEDRenderer = class LEDRenderer {
         }
         
         // Horizontal lines (perspective)
-        const tMod = (tSec * 2) % 1;
+        // Use sin-based animation so it loops perfectly with phase-based recording
+        const tMod = (Math.sin(tSec * 2) + 1) / 2;
         for (let i = 0; i < 15; i++) {
           const p = (i + tMod) / 15; // 0 to 1
           const y = startY + Math.pow(p, 2) * (h - startY);
@@ -507,14 +516,14 @@ window.LEDRenderer = class LEDRenderer {
 
   /**
    * Compute exact frames for a perfect seamless loop.
-   * effectivePeriod is always a multiple of canvasW, so text and bg
-   * both return to offset 0 at the same frame → no jump on loop.
+   * effectivePeriod is always a multiple of canvasW so text+bg
+   * both return to offset 0 at the same frame.
+   * Also caches effectivePeriod for renderLoopFrame.
    */
   computeLoopFrames(fps) {
     const cfg = this._config;
     const w = this.canvasW;
 
-    // Measure text using offscreen context
     const oCtx = this.offscreenCtx;
     const fontFam = cfg.fontFamily || '"Noto Sans SC", "Inter", sans-serif';
     oCtx.font = `${cfg.fontWeight} ${cfg.fontSize}px ${fontFam}`;
@@ -522,6 +531,9 @@ window.LEDRenderer = class LEDRenderer {
 
     const rawPeriod = Math.max(textW + cfg.textGap, w);
     const effectivePeriod = Math.ceil(rawPeriod / w) * w;
+
+    // Cache for use by renderLoopFrame
+    this._cachedEffectivePeriod = effectivePeriod;
 
     const frameDurationMs = 1000 / fps;
     const speedPerFrame = cfg.scrollSpeed * (frameDurationMs / 16.666);
@@ -539,5 +551,59 @@ window.LEDRenderer = class LEDRenderer {
   resetOffsets() {
     this.textOffsetX = 0;
     this.bgOffsetX = 0;
+  }
+
+  /**
+   * Render a single frame for seamless loop export.
+   *
+   * All animation state is derived from phase = frameIndex/totalFrames ∈ [0,1).
+   * BG_ANIM_CYCLES = 20: guarantees every frequency used in backgrounds
+   * (multiples of 0.1: 0.15, 0.2, 0.3, 0.5, 0.8, 1, 1.2, 1.3, 1.5, 2, 5)
+   * returns to exact starting value at phase=1 → frame N = frame 0.
+   *
+   * Particles and matrix chars are frozen in the tile during loop rendering;
+   * the canvas scroll itself provides the apparent motion.
+   */
+  renderLoopFrame(frameIndex, totalFrames) {
+    const ctx = this.ctx;
+    const w = this.canvasW;
+    const h = this.canvasH;
+    const cfg = this._config;
+
+    const phase = frameIndex / totalFrames; // [0, 1)
+
+    // Use cached effectivePeriod (computed in computeLoopFrames)
+    const effectivePeriod = this._cachedEffectivePeriod || w;
+
+    // Position-based offsets — exact, no floating-point accumulation drift
+    this.textOffsetX = phase * effectivePeriod;
+    this.bgOffsetX   = phase * effectivePeriod;
+
+    // Phase-locked bg animation time.
+    // BG_ANIM_CYCLES=20 ensures all frequencies (multiples of 0.1) return to start:
+    //   tSec_end = 20 * 2π → sin/cos(20*2π*k) = sin/cos(0) for any k that is multiple of 0.05
+    const BG_ANIM_CYCLES = 20;
+    const bgTime = phase * BG_ANIM_CYCLES * 2 * Math.PI * 1000 * cfg.bgSpeed;
+
+    // Render background in loop mode (particles/matrix frozen)
+    this._loopRenderMode = true;
+    ctx.save();
+    if (cfg.bgType === 'video' || cfg.bgType === 'solid') {
+      this.renderBackground(ctx, w, h, bgTime, cfg.bgSpeed, cfg.bgColor1, cfg.bgColor2, cfg.bgType);
+    } else {
+      const oCtx = this.offscreenCtx;
+      oCtx.clearRect(0, 0, w, h);
+      this.renderBackground(oCtx, w, h, bgTime, cfg.bgSpeed, cfg.bgColor1, cfg.bgColor2, cfg.bgType);
+      const offset = ((this.bgOffsetX % w) + w) % w;
+      ctx.drawImage(this.offscreen, -offset, 0);
+      ctx.drawImage(this.offscreen, w - offset, 0);
+    }
+    ctx.restore();
+    this._loopRenderMode = false;
+
+    // Render text (uses this.textOffsetX set above)
+    ctx.save();
+    this.renderText(ctx, w, h, cfg);
+    ctx.restore();
   }
 }
