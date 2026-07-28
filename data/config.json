@@ -17,9 +17,9 @@
         "outlineColor": "#000000",
         "scrollSpeed": 3,
         "textVertical": 50,
-        "bgType": "nebula",
-        "bgColor1": "#053819",
-        "bgColor2": "#271249",
+        "bgType": "particles",
+        "bgColor1": "#4a2b02",
+        "bgColor2": "#073a7d",
         "bgSpeed": 1,
         "bgVideo": "",
         "bgVideoUrl": ""
