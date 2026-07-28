@@ -1,7 +1,7 @@
 /**
  * CylinderPreview — real-time 3D LED cylinder visualiser
  * Uses Three.js r128 (global THREE namespace).
- * The LED canvas is used as a live CanvasTexture that updates every frame.
+ * Uses MeshBasicMaterial + NoToneMapping for 100% 1:1 exact color fidelity matching 2D canvas.
  */
 window.CylinderPreview = class CylinderPreview {
   constructor(container, ledCanvas) {
@@ -28,20 +28,16 @@ window.CylinderPreview = class CylinderPreview {
     /* ── Scene ── */
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x02020f);
-    this.scene.fog = new THREE.FogExp2(0x02020f, 0.003);
 
-    /* ── Camera (Positioned closer so cylinder is large & clear) ── */
+    /* ── Camera ── */
     this.camera = new THREE.PerspectiveCamera(45, W / H, 0.5, 5000);
     this.camera.position.set(0, 5, 105);
 
-    /* ── WebGL Renderer (High exposure for bright LED effect) ── */
+    /* ── WebGL Renderer (NoToneMapping for 1:1 exact canvas color matching) ── */
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     this.renderer.setSize(W, H);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 2.4;
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.toneMapping = THREE.NoToneMapping;
     this.container.appendChild(this.renderer.domElement);
 
     const dom = this.renderer.domElement;
@@ -55,83 +51,35 @@ window.CylinderPreview = class CylinderPreview {
     this.texture.minFilter = THREE.LinearFilter;
     this.texture.magFilter = THREE.LinearFilter;
 
-    /* ── Cylinder (high emissive intensity for bright LED screen) ── */
+    /* ── Cylinder (MeshBasicMaterial = 100% exact 1:1 color accuracy) ── */
     const geoOuter = new THREE.CylinderGeometry(
       this.cylRadius, this.cylRadius, this.cylHeight,
       256, 1, true
     );
-    const matOuter = new THREE.MeshStandardMaterial({
-      map:               this.texture,
-      emissiveMap:       this.texture,
-      emissive:          new THREE.Color(0xffffff),
-      emissiveIntensity: 2.8,
-      side:              THREE.FrontSide,
-      roughness:         0.02,
-      metalness:         0.0,
-      transparent:       false,
+    const matOuter = new THREE.MeshBasicMaterial({
+      map:  this.texture,
+      side: THREE.FrontSide,
     });
     this.cylinder = new THREE.Mesh(geoOuter, matOuter);
     this.scene.add(this.cylinder);
 
     /* ── Caps (dark metallic) ── */
     const capGeo = new THREE.CircleGeometry(this.cylRadius, 256);
-    const capMat = new THREE.MeshStandardMaterial({
-      color:    0x0a0a1a,
-      metalness: 0.85,
-      roughness: 0.25,
+    const capMat = new THREE.MeshBasicMaterial({
+      color: 0x0c0c1e,
     });
     const top = new THREE.Mesh(capGeo, capMat);
     top.rotation.x = -Math.PI / 2;
     top.position.y = this.cylHeight / 2;
     this.scene.add(top);
 
-    const bot = new THREE.Mesh(capGeo, capMat.clone());
+    const bot = new THREE.Mesh(capGeo, capMat);
     bot.rotation.x = Math.PI / 2;
     bot.position.y = -this.cylHeight / 2;
     this.scene.add(bot);
 
-    /* ── Glow halo ── */
-    const haloGeo = new THREE.CylinderGeometry(
-      this.cylRadius + 1.0, this.cylRadius + 1.0, this.cylHeight,
-      256, 1, true
-    );
-    const haloMat = new THREE.MeshBasicMaterial({
-      map:         this.texture,
-      side:        THREE.BackSide,
-      transparent: true,
-      opacity:     0.12,
-      blending:    THREE.AdditiveBlending,
-      depthWrite:  false,
-    });
-    this.scene.add(new THREE.Mesh(haloGeo, haloMat));
-
-    /* ── Floor ── */
-    const floorGeo  = new THREE.PlaneGeometry(3000, 3000);
-    const floorMat  = new THREE.MeshStandardMaterial({
-      color:     0x050515,
-      metalness: 0.6,
-      roughness: 0.7,
-    });
-    const floor = new THREE.Mesh(floorGeo, floorMat);
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.y  = -this.cylHeight / 2 - 0.2;
-    floor.receiveShadow = true;
-    this.scene.add(floor);
-
     /* ── Stars ── */
     this._addStars();
-
-    /* ── Bright Lights for vivid LED colors ── */
-    const ambient = new THREE.AmbientLight(0xffffff, 2.2);
-    this.scene.add(ambient);
-
-    const frontLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    frontLight.position.set(0, 50, 200);
-    this.scene.add(frontLight);
-
-    const rim = new THREE.DirectionalLight(0x6688ff, 1.0);
-    rim.position.set(-200, 300, -200);
-    this.scene.add(rim);
 
     /* ── OrbitControls ── */
     if (typeof THREE.OrbitControls === 'function') {
