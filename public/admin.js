@@ -510,73 +510,137 @@
   }
 
   async function startRecording() {
-    if (!window.VideoEncoder || !window.Mp4Muxer) {
-      showToast('浏览器不支持视频录制', 'error');
-      return;
-    }
-    const wasPlaying = renderer.isPlaying;
-    renderer.stop();
+    const fps = parseInt(el.recordFps.value) || 30;
+    const duration = parseInt(el.recordDuration.value) || 10;
+    const totalMs = duration * 1000;
+
     el.btnRecord.disabled = true;
     el.btnRecord.classList.add('recording');
     el.recordProgress.classList.add('visible');
-    
-    const fps = parseInt(el.recordFps.value) || 30;
-    const duration = parseInt(el.recordDuration.value) || 10;
-    const totalFrames = fps * duration;
-    const frameDurationMs = 1000 / fps;
-    
-    let muxer = new Mp4Muxer.Muxer({
-      target: new Mp4Muxer.ArrayBufferTarget(),
-      video: { codec: 'avc', width: CANVAS_W, height: CANVAS_H }
-    });
-    
-    let encoder = new VideoEncoder({
-      output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-      error: (e) => console.error(e)
-    });
-    
-    encoder.configure({
-      codec: 'avc1.640028',
-      width: CANVAS_W,
-      height: CANVAS_H,
-      bitrate: 8000000,
-      framerate: fps
-    });
-    
-    for (let i = 0; i < totalFrames; i++) {
-      renderer.renderFrame(frameDurationMs);
-      const vf = new VideoFrame(el.canvas, { timestamp: i * 1000000 / fps });
-      encoder.encode(vf, { keyFrame: i % fps === 0 });
-      vf.close();
-      
-      if (i % 5 === 0) {
-        const pct = Math.round((i / totalFrames) * 100);
-        el.recordPercent.textContent = pct + '%';
-        el.recordFill.style.width = pct + '%';
-        await new Promise(r => setTimeout(r, 0));
+
+    // 方案 1: WebCodecs + Mp4Muxer (离线逐帧高清 H.264 MP4)
+    if (window.VideoEncoder && window.Mp4Muxer) {
+      try {
+        const wasPlaying = renderer.isPlaying;
+        renderer.stop();
+        
+        let muxer = new Mp4Muxer.Muxer({
+          target: new Mp4Muxer.ArrayBufferTarget(),
+          video: { codec: 'avc', width: CANVAS_W, height: CANVAS_H }
+        });
+        
+        let encoder = new VideoEncoder({
+          output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+          error: (e) => console.error(e)
+        });
+        
+        encoder.configure({
+          codec: 'avc1.640028',
+          width: CANVAS_W,
+          height: CANVAS_H,
+          bitrate: 8000000,
+          framerate: fps
+        });
+        
+        const totalFrames = fps * duration;
+        const frameDurationMs = 1000 / fps;
+
+        for (let i = 0; i < totalFrames; i++) {
+          renderer.renderFrame(frameDurationMs);
+          const vf = new VideoFrame(el.canvas, { timestamp: i * 1000000 / fps });
+          encoder.encode(vf, { keyFrame: i % fps === 0 });
+          vf.close();
+          
+          if (i % 5 === 0) {
+            const pct = Math.round((i / totalFrames) * 100);
+            el.recordPercent.textContent = pct + '%';
+            el.recordFill.style.width = pct + '%';
+            await new Promise(r => setTimeout(r, 0));
+          }
+        }
+        
+        await encoder.flush();
+        muxer.finalize();
+        const { buffer } = muxer.target;
+        
+        const blob = new Blob([buffer], { type: 'video/mp4' });
+        downloadBlob(blob, `led-loop-${Date.now()}.mp4`);
+        finishRecording(wasPlaying);
+        return;
+      } catch (err) {
+        console.warn('WebCodecs 录制失败，自动降级为 MediaRecorder:', err);
       }
     }
-    
-    await encoder.flush();
-    muxer.finalize();
-    const { buffer } = muxer.target;
-    
-    const blob = new Blob([buffer], { type: 'video/mp4' });
+
+    // 方案 2: 标准 MediaRecorder API (兼容所有浏览器，包括 Safari/Firefox/移动端)
+    try {
+      const wasPlaying = renderer.isPlaying;
+      if (!renderer.isPlaying) renderer.start();
+
+      const stream = el.canvas.captureStream(fps);
+      const mimeTypes = [
+        'video/mp4;codecs=avc1.42E01E',
+        'video/mp4',
+        'video/webm;codecs=vp9',
+        'video/webm;codecs=vp8',
+        'video/webm'
+      ];
+      const selectedMime = mimeTypes.find(t => MediaRecorder.isTypeSupported(t)) || '';
+      
+      const recorder = new MediaRecorder(stream, selectedMime ? { mimeType: selectedMime, videoBitsPerSecond: 8000000 } : {});
+      const chunks = [];
+
+      recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      
+      const ext = selectedMime.includes('mp4') ? 'mp4' : 'webm';
+      
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: selectedMime || 'video/webm' });
+        downloadBlob(blob, `led-loop-${Date.now()}.${ext}`);
+        finishRecording(wasPlaying);
+      };
+
+      recorder.start(100);
+      
+      const startTime = Date.now();
+      const progressTimer = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const pct = Math.min(100, Math.round((elapsed / totalMs) * 100));
+        el.recordPercent.textContent = pct + '%';
+        el.recordFill.style.width = pct + '%';
+
+        if (elapsed >= totalMs) {
+          clearInterval(progressTimer);
+          recorder.stop();
+        }
+      }, 100);
+
+    } catch (err) {
+      console.error('MediaRecorder 录制失败:', err);
+      showToast('录制失败: ' + err.message, 'error');
+      finishRecording(true);
+    }
+  }
+
+  function downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `led-loop-${Date.now()}.mp4`;
+    a.download = filename;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
-    
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }
+
+  function finishRecording(resumePlaying = true) {
     el.btnRecord.disabled = false;
     el.btnRecord.classList.remove('recording');
     el.recordProgress.classList.remove('visible');
     el.recordPercent.textContent = '100%';
-    el.recordFill.style.width = '100%';
-    showToast('录制完成');
-    
-    if (wasPlaying) renderer.start();
+    el.recordFill.style.width = '0%';
+    showToast('录制完成，视频已下载！');
+    if (resumePlaying && renderer) renderer.start();
   }
 
   // Auth
