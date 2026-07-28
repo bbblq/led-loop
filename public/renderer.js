@@ -442,8 +442,11 @@ window.LEDRenderer = class LEDRenderer {
     const textW = ctx.measureText(cfg.text).width;
     if (textW <= 0) return;
 
-    // Effective period around the cylinder: at least w (1920px) to prevent overlapping
-    const effectivePeriod = Math.max(textW + cfg.textGap, w);
+    // Effective period: round UP to nearest multiple of canvas width.
+    // This ensures text period and bg period (=w) are always co-divisible,
+    // so both return to position 0 at exactly the same frame → perfect loop.
+    const rawPeriod = Math.max(textW + cfg.textGap, w);
+    const effectivePeriod = Math.ceil(rawPeriod / w) * w;
     
     // Normalize offset to [0, effectivePeriod)
     const offset = ((this.textOffsetX % effectivePeriod) + effectivePeriod) % effectivePeriod;
@@ -500,5 +503,41 @@ window.LEDRenderer = class LEDRenderer {
       }
       k++;
     }
+  }
+
+  /**
+   * Compute exact frames for a perfect seamless loop.
+   * effectivePeriod is always a multiple of canvasW, so text and bg
+   * both return to offset 0 at the same frame → no jump on loop.
+   */
+  computeLoopFrames(fps) {
+    const cfg = this._config;
+    const w = this.canvasW;
+
+    // Measure text using offscreen context
+    const oCtx = this.offscreenCtx;
+    const fontFam = cfg.fontFamily || '"Noto Sans SC", "Inter", sans-serif';
+    oCtx.font = `${cfg.fontWeight} ${cfg.fontSize}px ${fontFam}`;
+    const textW = oCtx.measureText(cfg.text).width || 0;
+
+    const rawPeriod = Math.max(textW + cfg.textGap, w);
+    const effectivePeriod = Math.ceil(rawPeriod / w) * w;
+
+    const frameDurationMs = 1000 / fps;
+    const speedPerFrame = cfg.scrollSpeed * (frameDurationMs / 16.666);
+    if (speedPerFrame <= 0) return { loopFrames: fps * 10, loopDurationMs: 10000, effectivePeriod };
+
+    const loopFrames = Math.max(fps, Math.round(effectivePeriod / speedPerFrame));
+    return {
+      effectivePeriod,
+      loopFrames,
+      loopDurationMs: Math.round(loopFrames * frameDurationMs)
+    };
+  }
+
+  /** Reset scroll offsets — call before recording so frame 0 === frame N */
+  resetOffsets() {
+    this.textOffsetX = 0;
+    this.bgOffsetX = 0;
   }
 }

@@ -554,29 +554,43 @@
 
   async function startRecording() {
     const fps = parseInt(el.recordFps.value) || 30;
-    const duration = parseInt(el.recordDuration.value) || 10;
-    const totalMs = duration * 1000;
+
+    // Compute the EXACT loop duration so first frame == last frame
+    const loopInfo = renderer.computeLoopFrames(fps);
+    const loopDurationSec = (loopInfo.loopDurationMs / 1000).toFixed(1);
+    const MAX_DURATION_MS = 120000; // 2-minute safety cap
+
+    let totalMs = loopInfo.loopDurationMs;
+    if (totalMs > MAX_DURATION_MS) {
+      showToast(`循环周期 ${loopDurationSec}s 超过2分钟上限，已截断。请降低速度或缩短文字。`, 'error');
+      totalMs = MAX_DURATION_MS;
+    } else {
+      showToast(`正在录制完整循环（${loopDurationSec}s），首尾帧完全对齐 ✓`, 'success');
+    }
 
     el.btnRecord.disabled = true;
     el.btnRecord.classList.add('recording');
     el.recordProgress.classList.add('visible');
 
-    // 方案 1: WebCodecs + Mp4Muxer (离线逐帧高清 H.264 MP4)
+    // 方案 1: WebCodecs + Mp4Muxer — 离线逐帧，确保帧精确对齐
     if (window.VideoEncoder && window.Mp4Muxer) {
       try {
         const wasPlaying = renderer.isPlaying;
         renderer.stop();
-        
+
+        // Reset offsets: frame 0 starts at (0, 0) → frame N also at (0, 0)
+        renderer.resetOffsets();
+
         let muxer = new Mp4Muxer.Muxer({
           target: new Mp4Muxer.ArrayBufferTarget(),
           video: { codec: 'avc', width: CANVAS_W, height: CANVAS_H }
         });
-        
+
         let encoder = new VideoEncoder({
           output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
           error: (e) => console.error(e)
         });
-        
+
         encoder.configure({
           codec: 'avc1.640028',
           width: CANVAS_W,
@@ -584,28 +598,29 @@
           bitrate: 8000000,
           framerate: fps
         });
-        
-        const totalFrames = fps * duration;
+
         const frameDurationMs = 1000 / fps;
+        const totalFrames = Math.round(totalMs / frameDurationMs);
 
         for (let i = 0; i < totalFrames; i++) {
           renderer.renderFrame(frameDurationMs);
-          const vf = new VideoFrame(el.canvas, { timestamp: i * 1000000 / fps });
+          const vf = new VideoFrame(el.canvas, { timestamp: Math.round(i * 1000000 / fps) });
           encoder.encode(vf, { keyFrame: i % fps === 0 });
           vf.close();
-          
+
           if (i % 5 === 0) {
             const pct = Math.round((i / totalFrames) * 100);
             el.recordPercent.textContent = pct + '%';
             el.recordFill.style.width = pct + '%';
+            el.recordStatusText.textContent = `渲染中 ${pct}%`;
             await new Promise(r => setTimeout(r, 0));
           }
         }
-        
+
         await encoder.flush();
         muxer.finalize();
         const { buffer } = muxer.target;
-        
+
         const blob = new Blob([buffer], { type: 'video/mp4' });
         downloadBlob(blob, `led-loop-${Date.now()}.mp4`);
         finishRecording(wasPlaying);
@@ -615,10 +630,14 @@
       }
     }
 
-    // 方案 2: 标准 MediaRecorder API (兼容所有浏览器，包括 Safari/Firefox/移动端)
+    // 方案 2: MediaRecorder — 实时录制精确循环时长
     try {
       const wasPlaying = renderer.isPlaying;
-      if (!renderer.isPlaying) renderer.start();
+
+      // Reset offsets and restart for clean loop start
+      renderer.stop();
+      renderer.resetOffsets();
+      renderer.start();
 
       const stream = el.canvas.captureStream(fps);
       const mimeTypes = [
@@ -629,14 +648,14 @@
         'video/webm'
       ];
       const selectedMime = mimeTypes.find(t => MediaRecorder.isTypeSupported(t)) || '';
-      
+
       const recorder = new MediaRecorder(stream, selectedMime ? { mimeType: selectedMime, videoBitsPerSecond: 8000000 } : {});
       const chunks = [];
 
       recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-      
+
       const ext = selectedMime.includes('mp4') ? 'mp4' : 'webm';
-      
+
       recorder.onstop = () => {
         const blob = new Blob(chunks, { type: selectedMime || 'video/webm' });
         downloadBlob(blob, `led-loop-${Date.now()}.${ext}`);
@@ -644,13 +663,14 @@
       };
 
       recorder.start(100);
-      
+
       const startTime = Date.now();
       const progressTimer = setInterval(() => {
         const elapsed = Date.now() - startTime;
         const pct = Math.min(100, Math.round((elapsed / totalMs) * 100));
         el.recordPercent.textContent = pct + '%';
         el.recordFill.style.width = pct + '%';
+        el.recordStatusText.textContent = `录制中 ${pct}%`;
 
         if (elapsed >= totalMs) {
           clearInterval(progressTimer);
