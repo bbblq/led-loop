@@ -9,11 +9,14 @@ window.CylinderPreview = class CylinderPreview {
     this.ledCanvas = ledCanvas;
     this._animId = null;
 
-    // Scale: 1 Three.js unit ≈ 5 LED pixels for comfortable camera distances
+    // Scale: 1 Three.js unit ≈ 5 LED pixels
     this.S = 5;
     const S = this.S;
-    this.cylRadius  = 1920 / (2 * Math.PI) / S; // ≈ 61  units
+    this.cylRadius  = 1920 / (2 * Math.PI) / S; // ≈ 61.1 units
     this.cylHeight  = 800 / S;                   // = 160 units
+
+    this._isUserDragging = false;
+    this._userAutoRotateState = true;
 
     this._init();
   }
@@ -25,21 +28,25 @@ window.CylinderPreview = class CylinderPreview {
     /* ── Scene ── */
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x02020f);
-    this.scene.fog = new THREE.FogExp2(0x02020f, 0.004);
+    this.scene.fog = new THREE.FogExp2(0x02020f, 0.003);
 
-    /* ── Camera ── */
+    /* ── Camera (Positioned closer so cylinder is large & clear) ── */
     this.camera = new THREE.PerspectiveCamera(45, W / H, 0.5, 5000);
-    this.camera.position.set(0, 20, 180);
+    this.camera.position.set(0, 5, 105);
 
-    /* ── WebGL Renderer ── */
+    /* ── WebGL Renderer (High exposure for bright LED effect) ── */
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     this.renderer.setSize(W, H);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.4;
+    this.renderer.toneMappingExposure = 2.4;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.container.appendChild(this.renderer.domElement);
+
+    const dom = this.renderer.domElement;
+    dom.style.cursor = 'grab';
+    dom.style.touchAction = 'none';
 
     /* ── LED Canvas Texture ── */
     this.texture = new THREE.CanvasTexture(this.ledCanvas);
@@ -48,18 +55,18 @@ window.CylinderPreview = class CylinderPreview {
     this.texture.minFilter = THREE.LinearFilter;
     this.texture.magFilter = THREE.LinearFilter;
 
-    /* ── Cylinder (outer surface, viewed from outside) ── */
+    /* ── Cylinder (high emissive intensity for bright LED screen) ── */
     const geoOuter = new THREE.CylinderGeometry(
       this.cylRadius, this.cylRadius, this.cylHeight,
-      256, 1, true   // open-ended, 256 segments for smooth silhouette
+      256, 1, true
     );
     const matOuter = new THREE.MeshStandardMaterial({
       map:               this.texture,
       emissiveMap:       this.texture,
       emissive:          new THREE.Color(0xffffff),
-      emissiveIntensity: 1.5,
+      emissiveIntensity: 2.8,
       side:              THREE.FrontSide,
-      roughness:         0.05,
+      roughness:         0.02,
       metalness:         0.0,
       transparent:       false,
     });
@@ -73,7 +80,7 @@ window.CylinderPreview = class CylinderPreview {
       metalness: 0.85,
       roughness: 0.25,
     });
-    const top    = new THREE.Mesh(capGeo, capMat);
+    const top = new THREE.Mesh(capGeo, capMat);
     top.rotation.x = -Math.PI / 2;
     top.position.y = this.cylHeight / 2;
     this.scene.add(top);
@@ -83,22 +90,22 @@ window.CylinderPreview = class CylinderPreview {
     bot.position.y = -this.cylHeight / 2;
     this.scene.add(bot);
 
-    /* ── Glow halo (additive semi-transparent ring slightly larger) ── */
+    /* ── Glow halo ── */
     const haloGeo = new THREE.CylinderGeometry(
-      this.cylRadius + 0.8, this.cylRadius + 0.8, this.cylHeight,
+      this.cylRadius + 1.0, this.cylRadius + 1.0, this.cylHeight,
       256, 1, true
     );
     const haloMat = new THREE.MeshBasicMaterial({
       map:         this.texture,
       side:        THREE.BackSide,
       transparent: true,
-      opacity:     0.07,
+      opacity:     0.12,
       blending:    THREE.AdditiveBlending,
       depthWrite:  false,
     });
     this.scene.add(new THREE.Mesh(haloGeo, haloMat));
 
-    /* ── Floor (reflective dark plane) ── */
+    /* ── Floor ── */
     const floorGeo  = new THREE.PlaneGeometry(3000, 3000);
     const floorMat  = new THREE.MeshStandardMaterial({
       color:     0x050515,
@@ -114,29 +121,50 @@ window.CylinderPreview = class CylinderPreview {
     /* ── Stars ── */
     this._addStars();
 
-    /* ── Lights ── */
-    const ambient = new THREE.AmbientLight(0x1a1a3a, 1.5);
+    /* ── Bright Lights for vivid LED colors ── */
+    const ambient = new THREE.AmbientLight(0xffffff, 2.2);
     this.scene.add(ambient);
 
-    const rim = new THREE.DirectionalLight(0x4466ff, 0.8);
+    const frontLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    frontLight.position.set(0, 50, 200);
+    this.scene.add(frontLight);
+
+    const rim = new THREE.DirectionalLight(0x6688ff, 1.0);
     rim.position.set(-200, 300, -200);
     this.scene.add(rim);
 
-    const fill = new THREE.PointLight(0x886699, 0.6, 600);
-    fill.position.set(150, 80, 250);
-    this.scene.add(fill);
-
     /* ── OrbitControls ── */
-    this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.enableDamping   = true;
-    this.controls.dampingFactor   = 0.06;
-    this.controls.minDistance     = 80;
-    this.controls.maxDistance     = 500;
-    this.controls.maxPolarAngle   = Math.PI * 0.75;
-    this.controls.autoRotate      = true;
-    this.controls.autoRotateSpeed = 0.4;
-    this.controls.target.set(0, 0, 0);
-    this.controls.update();
+    if (typeof THREE.OrbitControls === 'function') {
+      this.controls = new THREE.OrbitControls(this.camera, dom);
+      this.controls.enableDamping   = true;
+      this.controls.dampingFactor   = 0.08;
+      this.controls.minDistance     = 50;
+      this.controls.maxDistance     = 300;
+      this.controls.maxPolarAngle   = Math.PI * 0.75;
+      this.controls.autoRotate      = true;
+      this.controls.autoRotateSpeed = 0.5;
+      this.controls.target.set(0, 0, 0);
+      this.controls.update();
+
+      // Pause autoRotate on pointer drag so user mouse rotation is smooth & unimpeded
+      dom.addEventListener('pointerdown', () => {
+        this._isUserDragging = true;
+        dom.style.cursor = 'grabbing';
+        this._userAutoRotateState = this.controls.autoRotate;
+        this.controls.autoRotate = false;
+      });
+
+      const onPointerUp = () => {
+        if (this._isUserDragging) {
+          this._isUserDragging = false;
+          dom.style.cursor = 'grab';
+          this.controls.autoRotate = this._userAutoRotateState;
+        }
+      };
+
+      window.addEventListener('pointerup', onPointerUp);
+      window.addEventListener('pointercancel', onPointerUp);
+    }
 
     /* ── Resize handler ── */
     this._onResize = this._onResize.bind(this);
@@ -174,8 +202,10 @@ window.CylinderPreview = class CylinderPreview {
 
   _loop() {
     this._animId = requestAnimationFrame(this._loop);
-    this.texture.needsUpdate = true;   // pull latest frame from LED canvas
-    this.controls.update();
+    this.texture.needsUpdate = true;
+    if (this.controls) {
+      this.controls.update();
+    }
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -190,21 +220,25 @@ window.CylinderPreview = class CylinderPreview {
 
   /** Toggle auto-rotation; returns new state */
   toggleAutoRotate() {
-    this.controls.autoRotate = !this.controls.autoRotate;
+    if (!this.controls) return false;
+    this._userAutoRotateState = !this._userAutoRotateState;
+    this.controls.autoRotate = this._userAutoRotateState;
     return this.controls.autoRotate;
   }
 
-  /** Reset camera to default position */
+  /** Reset camera to default position & distance */
   resetCamera() {
-    this.camera.position.set(0, 20, 180);
-    this.controls.target.set(0, 0, 0);
-    this.controls.update();
+    this.camera.position.set(0, 5, 105);
+    if (this.controls) {
+      this.controls.target.set(0, 0, 0);
+      this.controls.update();
+    }
   }
 
   destroy() {
     cancelAnimationFrame(this._animId);
     window.removeEventListener('resize', this._onResize);
-    this.controls.dispose();
+    if (this.controls) this.controls.dispose();
     this.renderer.dispose();
     if (this.renderer.domElement.parentNode) {
       this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);
