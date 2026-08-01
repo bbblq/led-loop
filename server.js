@@ -42,8 +42,16 @@ const requireAuth = (req, res, next) => {
   }
 };
 
-// 静态文件路由
-app.use(express.static(path.join(__dirname, 'public')));
+// 静态文件路由 (禁用 JS/CSS 浏览器强缓存，防止使用旧版逻辑)
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.js') || filePath.endsWith('.html') || filePath.endsWith('.css')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
+}));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // 页面路由
