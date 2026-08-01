@@ -651,14 +651,15 @@
   }
 
   async function startRecording() {
-    const fps = parseInt(el.recordFps.value) || 30;
+    const fps = parseInt(el.recordFps?.value) || 30;
     const cyclesMultiplier = parseInt(el.recordCycles?.value) || 3;
 
     // Compute single loop frames
     const singleLoopInfo = renderer.computeLoopFrames(fps);
-    const singleFrames = singleLoopInfo.loopFrames;
+    const singleFrames = singleLoopInfo.loopFrames || (fps * 10);
+    const singleMs = singleLoopInfo.loopDurationMs || 10000;
     const totalFrames = singleFrames * cyclesMultiplier;
-    const totalMs = singleLoopInfo.loopDurationMs * cyclesMultiplier;
+    const totalMs = singleMs * cyclesMultiplier;
     const loopDurationSec = (totalMs / 1000).toFixed(1);
 
     showToast(`正在导出 ${cyclesMultiplier} 周期连播（共 ${loopDurationSec}s），零闪黑零跳帧 ✓`, 'success');
@@ -667,27 +668,52 @@
     el.btnRecord.classList.add('recording');
     el.recordProgress.classList.add('visible');
 
+    const wasPlaying = renderer.isPlaying;
+    renderer.stop();
+    renderer.resetOffsets();
+
     // 方案 1: WebCodecs + Mp4Muxer — 离线逐帧，确保帧精确对齐
     if (window.VideoEncoder && window.Mp4Muxer) {
       try {
-        const wasPlaying = renderer.isPlaying;
-        renderer.stop();
+        const codecCandidates = ['avc1.640028', 'avc1.4d401f', 'avc1.42E01E', 'vp09.00.10.08', 'vp8'];
+        let selectedCodec = 'avc1.640028';
+        let muxerCodec = 'avc';
 
-        // Reset offsets: frame 0 starts at (0, 0) → frame N also at (0, 0)
-        renderer.resetOffsets();
+        for (const candidate of codecCandidates) {
+          try {
+            const support = await VideoEncoder.isConfigSupported({
+              codec: candidate,
+              width: CANVAS_W,
+              height: CANVAS_H,
+              bitrate: 8000000,
+              framerate: fps
+            });
+            if (support.supported) {
+              selectedCodec = candidate;
+              if (candidate.startsWith('vp9') || candidate.startsWith('vp09')) muxerCodec = 'vp9';
+              else if (candidate.startsWith('vp8')) muxerCodec = 'vp8';
+              else muxerCodec = 'avc';
+              break;
+            }
+          } catch (e) {}
+        }
 
+        let encoderError = null;
         let muxer = new Mp4Muxer.Muxer({
           target: new Mp4Muxer.ArrayBufferTarget(),
-          video: { codec: 'avc', width: CANVAS_W, height: CANVAS_H }
+          video: { codec: muxerCodec, width: CANVAS_W, height: CANVAS_H }
         });
 
         let encoder = new VideoEncoder({
           output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-          error: (e) => console.error(e)
+          error: (e) => {
+            console.error('VideoEncoder error:', e);
+            encoderError = e;
+          }
         });
 
         encoder.configure({
-          codec: 'avc1.640028',
+          codec: selectedCodec,
           width: CANVAS_W,
           height: CANVAS_H,
           bitrate: 8000000,
@@ -697,6 +723,8 @@
         const frameDurationUs = Math.round(1000000 / fps);
 
         for (let i = 0; i < totalFrames; i++) {
+          if (encoderError) throw encoderError;
+
           const frameInCycle = i % singleFrames;
           renderer.renderLoopFrame(frameInCycle, singleFrames);
 
@@ -717,6 +745,8 @@
         }
 
         await encoder.flush();
+        if (encoderError) throw encoderError;
+
         muxer.finalize();
         const { buffer } = muxer.target;
 
@@ -725,15 +755,13 @@
         finishRecording(wasPlaying);
         return;
       } catch (err) {
-        console.warn('WebCodecs 录制失败，自动降级为 MediaRecorder:', err);
+        console.warn('WebCodecs 离线编码失败，自动降级为 MediaRecorder:', err);
       }
     }
 
-    // 方案 2: MediaRecorder + rAF phase loop — real-time with exact phase rendering
+    // 方案 2: MediaRecorder 实时录制降级
     try {
-      const wasPlaying = renderer.isPlaying;
-      renderer.stop();
-
+      renderer.renderLoopFrame(0, singleFrames);
       const stream = el.canvas.captureStream(fps);
       const mimeTypes = [
         'video/mp4;codecs=avc1.42E01E',
@@ -757,7 +785,6 @@
         finishRecording(wasPlaying);
       };
 
-      // Use rAF loop with phase-based rendering so background also loops perfectly
       const startPerfTime = performance.now();
       let rafId;
 
@@ -767,7 +794,7 @@
           recorder.stop();
           return;
         }
-        const currentFrameInCycle = Math.round(((elapsed % singleLoopInfo.loopDurationMs) / singleLoopInfo.loopDurationMs) * singleFrames);
+        const currentFrameInCycle = Math.round(((elapsed % singleMs) / singleMs) * singleFrames);
         renderer.renderLoopFrame(currentFrameInCycle, singleFrames);
 
         const pct = Math.min(100, Math.round((elapsed / totalMs) * 100));
@@ -782,8 +809,8 @@
 
     } catch (err) {
       console.error('MediaRecorder 录制失败:', err);
-      showToast('录制失败: ' + err.message, 'error');
-      finishRecording(true);
+      showToast('录制失败: ' + (err.message || err), 'error');
+      finishRecording(wasPlaying);
     }
   }
 
