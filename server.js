@@ -310,14 +310,26 @@ app.delete('/api/presets/:id', requireAuth, (req, res) => {
 
 // --- 文件上传配置 ---
 
+// 辅助函数：正确解码中文字符串并清洗文件名
+const getSafeFilename = (originalname) => {
+  let name = originalname;
+  try {
+    const decoded = Buffer.from(originalname, 'latin1').toString('utf8');
+    if (decoded && !decoded.includes('')) {
+      name = decoded;
+    }
+  } catch (e) {}
+  const sanitized = name.replace(/[\\/:\*\?"<>\|]/g, '_').replace(/\s+/g, '-');
+  return `${Date.now()}-${sanitized}`;
+};
+
 // 字体上传配置
 const fontStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, fontsDir);
   },
   filename: (req, file, cb) => {
-    // 保持原始文件名，替换空格
-    cb(null, Date.now() + '-' + file.originalname.replace(/\s+/g, '-'));
+    cb(null, getSafeFilename(file.originalname));
   }
 });
 
@@ -340,7 +352,7 @@ const videoStorage = multer.diskStorage({
     cb(null, videosDir);
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname.replace(/\s+/g, '-'));
+    cb(null, getSafeFilename(file.originalname));
   }
 });
 
@@ -462,7 +474,7 @@ app.delete('/api/videos/:filename', requireAuth, (req, res) => {
 const logoStorage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, logosDir),
   filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname.replace(/\s+/g, '-'));
+    cb(null, getSafeFilename(file.originalname));
   }
 });
 
@@ -485,11 +497,17 @@ app.post('/api/upload/logo', requireAuth, (req, res, next) => {
     const file = req.file || (req.files && req.files[0]);
     if (!file) return res.status(400).json({ success: false, error: 'No file uploaded' });
     
+    let originalName = file.originalname;
+    try {
+      const decoded = Buffer.from(file.originalname, 'latin1').toString('utf8');
+      if (decoded && !decoded.includes('')) originalName = decoded;
+    } catch(e) {}
+
     res.json({
       success: true,
-      name: file.originalname,
+      name: originalName,
       filename: file.filename,
-      url: `/uploads/logos/${file.filename}`
+      url: `/uploads/logos/${encodeURIComponent(file.filename)}`
     });
   });
 });
@@ -502,7 +520,7 @@ app.get('/api/logos', (req, res) => {
       .map(file => ({
         name: file.split('-').slice(1).join('-') || file,
         filename: file,
-        url: `/uploads/logos/${file}`
+        url: `/uploads/logos/${encodeURIComponent(file)}`
       }));
     res.json(logos);
   } catch (error) {
@@ -512,7 +530,8 @@ app.get('/api/logos', (req, res) => {
 
 app.delete('/api/logos/:filename', requireAuth, (req, res) => {
   try {
-    const filePath = path.join(logosDir, req.params.filename);
+    const filename = decodeURIComponent(req.params.filename);
+    const filePath = path.join(logosDir, filename);
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
       res.json({ success: true });

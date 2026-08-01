@@ -106,12 +106,20 @@ window.LEDRenderer = class LEDRenderer {
         this.logoImg = img;
         resolve(img);
       };
-      img.onerror = () => {
-        console.warn('Failed to load logo image:', logoUrl);
+      img.onerror = (err) => {
+        console.warn('Failed to load logo image:', logoUrl, err);
         this.logoImg = null;
         resolve(null);
       };
-      img.src = logoUrl.startsWith('/') ? logoUrl : `/uploads/logos/${logoUrl}`;
+      let src = logoUrl;
+      if (!src.startsWith('/')) {
+        src = `/uploads/logos/${encodeURIComponent(logoUrl)}`;
+      } else {
+        const parts = src.split('/');
+        const filename = parts.pop();
+        src = parts.join('/') + '/' + encodeURIComponent(decodeURIComponent(filename));
+      }
+      img.src = src;
     });
   }
 
