@@ -480,15 +480,16 @@ const logoUpload = multer({
 });
 
 app.post('/api/upload/logo', requireAuth, (req, res, next) => {
-  logoUpload.single('logo')(req, res, (err) => {
+  logoUpload.any()(req, res, (err) => {
     if (err) return handleMulterError(err, req, res, next);
-    if (!req.file) return res.status(400).json({ success: false, error: 'No file uploaded' });
+    const file = req.file || (req.files && req.files[0]);
+    if (!file) return res.status(400).json({ success: false, error: 'No file uploaded' });
     
     res.json({
       success: true,
-      name: req.file.originalname,
-      filename: req.file.filename,
-      url: `/uploads/logos/${req.file.filename}`
+      name: file.originalname,
+      filename: file.filename,
+      url: `/uploads/logos/${file.filename}`
     });
   });
 });

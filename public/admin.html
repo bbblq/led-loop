@@ -65,16 +65,30 @@
     <div class="preview-section">
       <div class="preview-header">
         <div class="preview-title-group">
-          <h2>实时预览</h2>
+          <h2>实时预览 & 录制导出</h2>
           <span class="preview-subtitle">2D 展平 &amp; 3D 柱体全景</span>
         </div>
-        <div class="preview-controls">
-          <button id="btn-play" class="btn btn-icon" title="播放/暂停">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+        <div class="preview-actions-bar">
+          <div class="record-quick-group">
+            <label for="record-fps" class="quick-label">帧率</label>
+            <select id="record-fps" class="select-sm">
+              <option value="24">24 FPS</option>
+              <option value="30" selected>30 FPS</option>
+              <option value="60">60 FPS</option>
+            </select>
+          </div>
+          <button id="btn-record" class="btn btn-primary btn-record-header">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+            开始录制 MP4
           </button>
-          <button id="btn-fullscreen" class="btn btn-icon" title="2D全屏预览">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
-          </button>
+          <div class="preview-controls">
+            <button id="btn-play" class="btn btn-icon" title="播放/暂停">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            </button>
+            <button id="btn-fullscreen" class="btn btn-icon" title="2D全屏预览">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+            </button>
+          </div>
         </div>
       </div>
       <div class="preview-grid">
@@ -89,6 +103,15 @@
         <div class="preview-card">
           <div class="preview-card-label">🧊 3D 柱体实景包裹</div>
           <div id="cylinder-3d-wrapper" class="cylinder-3d-wrapper"></div>
+        </div>
+      </div>
+      <div id="record-progress" class="record-progress-inline">
+        <div class="progress-header">
+          <span id="record-status-text">准备录制...</span>
+          <span id="record-percent">0%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="record-fill"></div>
         </div>
       </div>
     </div>
@@ -359,42 +382,7 @@
         </div>
       </div>
 
-      <!-- 录制导出 -->
-      <div class="control-panel">
-        <div class="panel-header">
-          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          <h3>录制导出</h3>
-        </div>
-        <div class="panel-body">
-          <div class="form-row">
-            <div class="form-group">
-              <label>录制时长 (秒)</label>
-              <input type="number" id="record-duration" min="1" max="300" value="10">
-            </div>
-            <div class="form-group">
-              <label>帧率 (FPS)</label>
-              <select id="record-fps">
-                <option value="24">24</option>
-                <option value="30" selected>30</option>
-                <option value="60">60</option>
-              </select>
-            </div>
-          </div>
-          <button id="btn-record" class="btn btn-primary btn-large">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
-            开始录制 MP4
-          </button>
-          <div id="record-progress">
-            <div class="progress-header">
-              <span id="record-status-text">准备录制...</span>
-              <span id="record-percent">0%</span>
-            </div>
-            <div class="progress-bar">
-              <div class="progress-fill" id="record-fill"></div>
-            </div>
-          </div>
-        </div>
-      </div>
+
 
     </div>
   </div>

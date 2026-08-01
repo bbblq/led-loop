@@ -225,15 +225,15 @@
     });
 
     // Upload Zones
-    setupUploadZone(el.fontUploadZone, el.fontFileInput, '/api/upload/font', () => {
+    setupUploadZone(el.fontUploadZone, el.fontFileInput, '/api/upload/font', 'font', () => {
       showToast('字体上传成功');
       loadFontList();
     });
-    setupUploadZone(el.videoUploadZone, el.videoFileInput, '/api/upload/video', () => {
+    setupUploadZone(el.videoUploadZone, el.videoFileInput, '/api/upload/video', 'video', () => {
       showToast('视频上传成功');
       loadVideoList();
     });
-    setupUploadZone(el.logoUploadZone, el.logoFileInput, '/api/upload/logo', () => {
+    setupUploadZone(el.logoUploadZone, el.logoFileInput, '/api/upload/logo', 'logo', () => {
       showToast('Logo 图片上传成功');
       loadLogoList();
     });
@@ -377,7 +377,7 @@
     });
   }
 
-  function setupUploadZone(zone, fileInput, url, onSuccess) {
+  function setupUploadZone(zone, fileInput, url, fieldName, onSuccess) {
     zone.addEventListener('click', () => fileInput.click());
     zone.addEventListener('dragover', (e) => {
       e.preventDefault();
@@ -387,17 +387,17 @@
     zone.addEventListener('drop', (e) => {
       e.preventDefault();
       zone.classList.remove('dragover');
-      if (e.dataTransfer.files.length) uploadFile(e.dataTransfer.files[0], url, onSuccess);
+      if (e.dataTransfer.files.length) uploadFile(e.dataTransfer.files[0], url, fieldName, onSuccess);
     });
     fileInput.addEventListener('change', () => {
-      if (fileInput.files.length) uploadFile(fileInput.files[0], url, onSuccess);
+      if (fileInput.files.length) uploadFile(fileInput.files[0], url, fieldName, onSuccess);
       fileInput.value = '';
     });
   }
 
-  function uploadFile(file, url, onSuccess) {
+  function uploadFile(file, url, fieldName, onSuccess) {
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append(fieldName || 'file', file);
     fetch(url, {
       method: 'POST',
       body: formData
