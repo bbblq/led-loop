@@ -1,5 +1,8 @@
 FROM node:20-alpine
 
+# Install FFmpeg for server-side MP4 rendering on HTTP LAN IPs
+RUN apk add --no-cache ffmpeg
+
 WORKDIR /app
 
 # Copy package files

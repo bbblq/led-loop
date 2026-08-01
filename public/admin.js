@@ -755,11 +755,56 @@
         finishRecording(wasPlaying);
         return;
       } catch (err) {
-        console.warn('WebCodecs 离线编码失败，自动降级为 MediaRecorder:', err);
+        console.warn('WebCodecs 离线编码未开启或不支持，切换至服务端 FFmpeg 渲染:', err);
       }
     }
 
-    // 方案 2: MediaRecorder 实时录制降级
+    // 方案 2: 服务端 FFmpeg 高清 MP4 渲染 (专用于 HTTP 局域网 IP / 浏览器无 WebCodecs 环境)
+    try {
+      showToast(`局域网环境: 正在生成帧并交由服务器 FFmpeg 合成 MP4...`, 'success');
+
+      const formData = new FormData();
+      formData.append('fps', fps);
+
+      for (let i = 0; i < totalFrames; i++) {
+        const frameInCycle = i % singleFrames;
+        renderer.renderLoopFrame(frameInCycle, singleFrames);
+
+        const blob = await new Promise(resolve => el.canvas.toBlob(resolve, 'image/jpeg', 0.92));
+        formData.append('frames', blob, `frame_${String(i).padStart(5, '0')}.jpg`);
+
+        if (i % 5 === 0 || i === totalFrames - 1) {
+          const pct = Math.round((i / totalFrames) * 75);
+          el.recordPercent.textContent = pct + '%';
+          el.recordFill.style.width = pct + '%';
+          el.recordStatusText.textContent = `生成帧 ${i + 1}/${totalFrames}`;
+          await new Promise(r => setTimeout(r, 0));
+        }
+      }
+
+      el.recordStatusText.textContent = '服务器 FFmpeg 编码合成中...';
+      el.recordPercent.textContent = '85%';
+      el.recordFill.style.width = '85%';
+
+      const response = await fetch('/api/render-mp4', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson.error || '服务器 FFmpeg 渲染失败');
+      }
+
+      const blob = await response.blob();
+      downloadBlob(blob, `led-loop-${cyclesMultiplier}cycles-${Date.now()}.mp4`);
+      finishRecording(wasPlaying);
+      return;
+    } catch (err) {
+      console.warn('服务端 FFmpeg 渲染失败，尝试 MediaRecorder 降级:', err);
+    }
+
+    // 方案 3: MediaRecorder 实时录制降级
     try {
       renderer.renderLoopFrame(0, singleFrames);
       const stream = el.canvas.captureStream(fps);

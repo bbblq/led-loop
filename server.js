@@ -564,6 +564,77 @@ app.delete('/api/logos/:filename', requireAuth, (req, res) => {
   }
 });
 
+// 服务端 FFmpeg 高清 MP4 渲染接口 (专用于 HTTP 局域网 IP 访问无 WebCodecs 环境)
+const renderTmpDir = path.join(dataDir, 'tmp_render');
+if (!fs.existsSync(renderTmpDir)) fs.mkdirSync(renderTmpDir, { recursive: true });
+
+const renderUpload = multer({
+  dest: renderTmpDir,
+  limits: { fileSize: 20 * 1024 * 1024 }
+});
+
+app.post('/api/render-mp4', requireAuth, renderUpload.array('frames', 2000), (req, res) => {
+  const fps = parseInt(req.body.fps) || 30;
+  const taskDir = path.join(renderTmpDir, `task-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
+  fs.mkdirSync(taskDir, { recursive: true });
+
+  const cleanup = () => {
+    try {
+      if (req.files) req.files.forEach(f => { if (fs.existsSync(f.path)) fs.unlinkSync(f.path); });
+      if (fs.existsSync(taskDir)) fs.rmSync(taskDir, { recursive: true, force: true });
+    } catch (e) {}
+  };
+
+  try {
+    if (!req.files || req.files.length === 0) {
+      cleanup();
+      return res.status(400).json({ error: 'No frame images received' });
+    }
+
+    req.files.forEach((file, index) => {
+      const destName = `frame_${String(index).padStart(5, '0')}.jpg`;
+      fs.renameSync(file.path, path.join(taskDir, destName));
+    });
+
+    const outputMp4 = path.join(taskDir, 'output.mp4');
+    const { spawn } = require('child_process');
+    const ffmpegArgs = [
+      '-y',
+      '-framerate', String(fps),
+      '-i', path.join(taskDir, 'frame_%05d.jpg'),
+      '-c:v', 'libx264',
+      '-pix_fmt', 'yuv420p',
+      '-b:v', '8M',
+      '-movflags', '+faststart',
+      outputMp4
+    ];
+
+    const ffmpegProc = spawn('ffmpeg', ffmpegArgs);
+
+    ffmpegProc.on('close', (code) => {
+      if (code === 0 && fs.existsSync(outputMp4)) {
+        res.download(outputMp4, `led-loop-${Date.now()}.mp4`, () => {
+          cleanup();
+        });
+      } else {
+        cleanup();
+        res.status(500).json({ error: `FFmpeg 渲染失败，退出码: ${code}` });
+      }
+    });
+
+    ffmpegProc.on('error', (err) => {
+      cleanup();
+      console.error('FFmpeg error:', err);
+      res.status(500).json({ error: 'FFmpeg 未在服务器安装或运行失败: ' + err.message });
+    });
+
+  } catch (err) {
+    cleanup();
+    console.error('Render error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Server is running at http://localhost:${PORT}`);
