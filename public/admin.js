@@ -758,7 +758,6 @@
       };
 
       // Use rAF loop with phase-based rendering so background also loops perfectly
-      const totalFrames = loopInfo.loopFrames;
       const startPerfTime = performance.now();
       let rafId;
 
@@ -768,9 +767,8 @@
           recorder.stop();
           return;
         }
-        const phase = (elapsed / totalMs) % 1;
-        const frameIndex = Math.round(phase * totalFrames);
-        renderer.renderLoopFrame(frameIndex, totalFrames);
+        const currentFrameInCycle = Math.round(((elapsed % singleLoopInfo.loopDurationMs) / singleLoopInfo.loopDurationMs) * singleFrames);
+        renderer.renderLoopFrame(currentFrameInCycle, singleFrames);
 
         const pct = Math.min(100, Math.round((elapsed / totalMs) * 100));
         el.recordPercent.textContent = pct + '%';
