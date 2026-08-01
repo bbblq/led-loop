@@ -51,9 +51,17 @@ window.CylinderPreview = class CylinderPreview {
     this.renderer.toneMapping = THREE.NoToneMapping;
     this.container.appendChild(this.renderer.domElement);
 
+    /* ── Orbit Controls (Allows dragging mouse to rotate 360° cylinder view) ── */
+    if (THREE.OrbitControls) {
+      this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+      this.controls.enableDamping = true;
+      this.controls.dampingFactor = 0.05;
+      this.controls.rotateSpeed = 0.8;
+    }
+
     /* ── LED Canvas Texture ── */
     this.texture = new THREE.CanvasTexture(this.ledCanvas);
-    this.texture.wrapS   = THREE.ClampToEdgeWrapping;
+    this.texture.wrapS   = THREE.RepeatWrapping;
     this.texture.wrapT   = THREE.ClampToEdgeWrapping;
     this.texture.repeat.set(this.activeWidth / 1920, 1);
     this.texture.minFilter = THREE.LinearFilter;
@@ -66,9 +74,10 @@ window.CylinderPreview = class CylinderPreview {
     );
     const matOuter = new THREE.MeshBasicMaterial({
       map:  this.texture,
-      side: THREE.FrontSide,
+      side: THREE.DoubleSide,
     });
     this.cylinder = new THREE.Mesh(geoOuter, matOuter);
+    this.cylinder.rotation.y = Math.PI; // Face center (50% position) forward to camera
     this.scene.add(this.cylinder);
 
     /* ── Caps (dark metallic) ── */
@@ -125,6 +134,7 @@ window.CylinderPreview = class CylinderPreview {
 
   _loop() {
     this._animId = requestAnimationFrame(this._loop);
+    if (this.controls) this.controls.update();
     this.texture.needsUpdate = true;
     this.renderer.render(this.scene, this.camera);
   }
