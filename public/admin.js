@@ -75,7 +75,7 @@
 
     // Record
     btnRecord: document.getElementById('btn-record'),
-    recordDuration: document.getElementById('record-duration'),
+    recordCycles: document.getElementById('record-cycles'),
     recordFps: document.getElementById('record-fps'),
     recordProgress: document.getElementById('record-progress'),
     recordStatusText: document.getElementById('record-status-text'),
@@ -652,18 +652,16 @@
 
   async function startRecording() {
     const fps = parseInt(el.recordFps.value) || 30;
+    const cyclesMultiplier = parseInt(el.recordCycles?.value) || 3;
 
-    // Compute the EXACT loop duration so first frame == last frame
-    const loopInfo = renderer.computeLoopFrames(fps);
-    const totalMs = loopInfo.loopDurationMs;
+    // Compute single loop frames
+    const singleLoopInfo = renderer.computeLoopFrames(fps);
+    const singleFrames = singleLoopInfo.loopFrames;
+    const totalFrames = singleFrames * cyclesMultiplier;
+    const totalMs = singleLoopInfo.loopDurationMs * cyclesMultiplier;
     const loopDurationSec = (totalMs / 1000).toFixed(1);
-    const MAX_DURATION_MS = 120000; // 2-minute safety cap
 
-    if (totalMs > MAX_DURATION_MS) {
-      showToast(`循环周期 ${loopDurationSec}s 超过2分钟上限，已截断。请降低速度或缩短文字。`, 'error');
-    } else {
-      showToast(`正在录制完整循环（${loopDurationSec}s），首尾帧完全对齐 ✓`, 'success');
-    }
+    showToast(`正在导出 ${cyclesMultiplier} 周期连播（共 ${loopDurationSec}s），零闪黑零跳帧 ✓`, 'success');
 
     el.btnRecord.disabled = true;
     el.btnRecord.classList.add('recording');
@@ -696,13 +694,17 @@
           framerate: fps
         });
 
-        const frameDurationMs = 1000 / fps;
-        const totalFrames = loopInfo.loopFrames;
+        const frameDurationUs = Math.round(1000000 / fps);
 
         for (let i = 0; i < totalFrames; i++) {
-          renderer.renderLoopFrame(i, totalFrames);
-          const vf = new VideoFrame(el.canvas, { timestamp: Math.round(i * 1000000 / fps) });
-          encoder.encode(vf, { keyFrame: i % fps === 0 });
+          const frameInCycle = i % singleFrames;
+          renderer.renderLoopFrame(frameInCycle, singleFrames);
+
+          const vf = new VideoFrame(el.canvas, {
+            timestamp: i * frameDurationUs,
+            duration: frameDurationUs
+          });
+          encoder.encode(vf, { keyFrame: i % (fps * 2) === 0 });
           vf.close();
 
           if (i % 5 === 0) {
@@ -719,7 +721,7 @@
         const { buffer } = muxer.target;
 
         const blob = new Blob([buffer], { type: 'video/mp4' });
-        downloadBlob(blob, `led-loop-${Date.now()}.mp4`);
+        downloadBlob(blob, `led-loop-${cyclesMultiplier}cycles-${Date.now()}.mp4`);
         finishRecording(wasPlaying);
         return;
       } catch (err) {
