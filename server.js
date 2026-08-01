@@ -11,8 +11,9 @@ const PORT = process.env.PORT || 3000;
 const dataDir = path.join(__dirname, 'data');
 const fontsDir = path.join(__dirname, 'uploads', 'fonts');
 const videosDir = path.join(__dirname, 'uploads', 'videos');
+const logosDir = path.join(__dirname, 'uploads', 'logos');
 
-[dataDir, fontsDir, videosDir].forEach(dir => {
+[dataDir, fontsDir, videosDir, logosDir].forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -446,6 +447,71 @@ app.get('/api/videos', (req, res) => {
 app.delete('/api/videos/:filename', requireAuth, (req, res) => {
   try {
     const filePath = path.join(videosDir, req.params.filename);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ error: 'File not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete file' });
+  }
+});
+
+// Logo 相关路由与存储
+const logoStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, logosDir),
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + '-' + file.originalname.replace(/\s+/g, '-'));
+  }
+});
+
+const logoUpload = multer({
+  storage: logoStorage,
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (['.png', '.jpg', '.jpeg', '.svg', '.webp'].includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid image file type'));
+    }
+  }
+});
+
+app.post('/api/upload/logo', requireAuth, (req, res, next) => {
+  logoUpload.single('logo')(req, res, (err) => {
+    if (err) return handleMulterError(err, req, res, next);
+    if (!req.file) return res.status(400).json({ success: false, error: 'No file uploaded' });
+    
+    res.json({
+      success: true,
+      name: req.file.originalname,
+      filename: req.file.filename,
+      url: `/uploads/logos/${req.file.filename}`
+    });
+  });
+});
+
+app.get('/api/logos', (req, res) => {
+  try {
+    const files = fs.readdirSync(logosDir);
+    const logos = files
+      .filter(file => file !== '.gitkeep')
+      .map(file => ({
+        name: file.split('-').slice(1).join('-') || file,
+        filename: file,
+        url: `/uploads/logos/${file}`
+      }));
+    res.json(logos);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to read logos directory' });
+  }
+});
+
+app.delete('/api/logos/:filename', requireAuth, (req, res) => {
+  try {
+    const filePath = path.join(logosDir, req.params.filename);
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
       res.json({ success: true });

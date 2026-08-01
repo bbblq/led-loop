@@ -26,7 +26,13 @@ window.LEDRenderer = class LEDRenderer {
       bgColor1: '#0a0a2e',
       bgColor2: '#1a1a4e',
       bgSpeed: 1,
-      bgVideo: '' // URL to video file
+      bgVideo: '', // URL to video file
+      showLogo: false,
+      logoUrl: '',
+      logoSize: 150,
+      logoPosX: 50,
+      logoPosY: 15,
+      logoOpacity: 100
     };
 
     this._config = { ...this.DEFAULT_CONFIG };
@@ -81,7 +87,32 @@ window.LEDRenderer = class LEDRenderer {
   }
 
   updateConfig(config) {
+    const oldLogoUrl = this._config?.logoUrl;
     this._config = { ...this._config, ...config };
+    if (config.logoUrl !== undefined && config.logoUrl !== oldLogoUrl) {
+      this.loadLogo(config.logoUrl);
+    }
+  }
+
+  loadLogo(logoUrl) {
+    if (!logoUrl) {
+      this.logoImg = null;
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        this.logoImg = img;
+        resolve(img);
+      };
+      img.onerror = () => {
+        console.warn('Failed to load logo image:', logoUrl);
+        this.logoImg = null;
+        resolve(null);
+      };
+      img.src = logoUrl.startsWith('/') ? logoUrl : `/uploads/logos/${logoUrl}`;
+    });
   }
 
   setVideoElement(videoEl) {
@@ -160,6 +191,39 @@ window.LEDRenderer = class LEDRenderer {
     // Render Text
     ctx.save();
     this.renderText(ctx, w, h, cfg);
+    ctx.restore();
+
+    // Render Logo Watermark / Icon
+    ctx.save();
+    this.renderLogo(ctx, w, h, cfg);
+    ctx.restore();
+  }
+
+  renderLogo(ctx, w, h, cfg) {
+    if (!cfg.showLogo || !this.logoImg) return;
+
+    const img = this.logoImg;
+    if (!img.complete || img.naturalWidth === 0) return;
+
+    const aspect = img.naturalHeight / img.naturalWidth;
+    const sizeW = Math.max(20, cfg.logoSize || 150);
+    const sizeH = sizeW * aspect;
+
+    const loopW = cfg.activeWidth || w;
+    const baseX = (cfg.logoPosX / 100) * loopW - sizeW / 2;
+    const posY = (cfg.logoPosY / 100) * h - sizeH / 2;
+    const opacity = Math.min(1, Math.max(0.05, (cfg.logoOpacity ?? 100) / 100));
+
+    ctx.save();
+    ctx.globalAlpha = opacity;
+
+    for (let k = -1; k <= Math.ceil(w / loopW); k++) {
+      const drawX = baseX + k * loopW;
+      if (drawX + sizeW >= 0 && drawX <= w) {
+        ctx.drawImage(img, drawX, posY, sizeW, sizeH);
+      }
+    }
+
     ctx.restore();
   }
 

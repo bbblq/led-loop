@@ -54,6 +54,18 @@
     videoFileInput: document.getElementById('video-file-input'),
     videoList: document.getElementById('video-list'),
     
+    // Logo
+    showLogo: document.getElementById('show-logo'),
+    logoSelect: document.getElementById('logo-select'),
+    logoSize: document.getElementById('logo-size'),
+    logoPosX: document.getElementById('logo-pos-x'),
+    logoPosY: document.getElementById('logo-pos-y'),
+    logoOpacity: document.getElementById('logo-opacity'),
+    
+    logoUploadZone: document.getElementById('logo-upload-zone'),
+    logoFileInput: document.getElementById('logo-file-input'),
+    logoList: document.getElementById('logo-list'),
+    
     // Presets
     presetSelect: document.getElementById('preset-select'),
     btnApplyPreset: document.getElementById('btn-apply-preset'),
@@ -89,6 +101,7 @@
     setupEventListeners();
     loadFontList();
     loadVideoList();
+    loadLogoList();
     loadPresets();
     
     // Initialize 3D Cylinder Preview side-by-side with 2D Canvas
@@ -107,7 +120,8 @@
 
   function setupEventListeners() {
     [el.inputText, el.fontSize, el.fontWeight, el.textGap, 
-     el.scrollSpeed, el.textVertical, el.bgSpeed, el.activeWidth].forEach(input => {
+     el.scrollSpeed, el.textVertical, el.bgSpeed, el.activeWidth,
+     el.logoSize, el.logoPosX, el.logoPosY, el.logoOpacity].forEach(input => {
       if (input.type === 'range') {
         input.addEventListener('input', (e) => {
           e.target.nextElementSibling.textContent = e.target.value;
@@ -116,6 +130,16 @@
       } else {
         input.addEventListener('input', syncConfig);
       }
+    });
+
+    [el.showLogo].forEach(input => {
+      input.addEventListener('change', syncConfig);
+    });
+
+    el.logoSelect.addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (renderer) renderer.loadLogo(val);
+      syncConfig();
     });
 
     [el.textColor, el.outlineColor, el.bgColor1, el.bgColor2].forEach(input => {
@@ -208,6 +232,10 @@
     setupUploadZone(el.videoUploadZone, el.videoFileInput, '/api/upload/video', () => {
       showToast('视频上传成功');
       loadVideoList();
+    });
+    setupUploadZone(el.logoUploadZone, el.logoFileInput, '/api/upload/logo', () => {
+      showToast('Logo 图片上传成功');
+      loadLogoList();
     });
 
     // Record
@@ -401,7 +429,13 @@
       bgColor1: el.bgColor1.value,
       bgColor2: el.bgColor2.value,
       bgSpeed: parseFloat(el.bgSpeed.value),
-      bgVideoUrl: el.bgVideoSelect.value
+      bgVideoUrl: el.bgVideoSelect.value,
+      showLogo: el.showLogo.checked,
+      logoUrl: el.logoSelect.value,
+      logoSize: parseInt(el.logoSize.value),
+      logoPosX: parseInt(el.logoPosX.value),
+      logoPosY: parseInt(el.logoPosY.value),
+      logoOpacity: parseInt(el.logoOpacity.value)
     };
   }
 
@@ -440,6 +474,15 @@
       el.bgVideoSelect.value = config.bgVideoUrl;
       el.videoBg.src = config.bgVideoUrl ? `/uploads/videos/${config.bgVideoUrl}` : '';
     }
+    if (config.showLogo !== undefined) el.showLogo.checked = config.showLogo;
+    if (config.logoUrl !== undefined) {
+      el.logoSelect.value = config.logoUrl;
+      if (renderer) renderer.loadLogo(config.logoUrl);
+    }
+    if (config.logoSize !== undefined) { el.logoSize.value = config.logoSize; el.logoSize.nextElementSibling.textContent = config.logoSize; }
+    if (config.logoPosX !== undefined) { el.logoPosX.value = config.logoPosX; el.logoPosX.nextElementSibling.textContent = config.logoPosX; }
+    if (config.logoPosY !== undefined) { el.logoPosY.value = config.logoPosY; el.logoPosY.nextElementSibling.textContent = config.logoPosY; }
+    if (config.logoOpacity !== undefined) { el.logoOpacity.value = config.logoOpacity; el.logoOpacity.nextElementSibling.textContent = config.logoOpacity; }
   }
 
   // Harmonious random color palette generator
@@ -553,6 +596,35 @@
     if(!confirm(`确定删除视频 ${filename}?`)) return;
     fetch(`/api/videos/${filename}`, { method: 'DELETE' })
       .then(() => { showToast('已删除'); loadVideoList(); })
+      .catch(() => showToast('删除失败', 'error'));
+  }
+
+  function loadLogoList() {
+    fetch('/api/logos')
+      .then(res => res.json())
+      .then(logos => {
+        el.logoList.innerHTML = '';
+        el.logoSelect.innerHTML = '<option value="">(请选择 Logo 图标)</option>';
+        logos.forEach(l => {
+          const item = document.createElement('div');
+          item.className = 'file-item';
+          item.innerHTML = `<span class="file-name" title="${l.name}">${l.name}</span>
+            <button class="delete-btn" data-name="${l.name}"><svg viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>`;
+          item.querySelector('.delete-btn').addEventListener('click', () => deleteLogo(l.name));
+          el.logoList.appendChild(item);
+          const opt = document.createElement('option');
+          opt.value = l.name;
+          opt.textContent = l.name;
+          el.logoSelect.appendChild(opt);
+        });
+        el.logoSelect.value = renderer?.config?.logoUrl || '';
+      });
+  }
+
+  function deleteLogo(filename) {
+    if(!confirm(`确定删除 Logo ${filename}?`)) return;
+    fetch(`/api/logos/${filename}`, { method: 'DELETE' })
+      .then(() => { showToast('已删除'); loadLogoList(); })
       .catch(() => showToast('删除失败', 'error'));
   }
 
