@@ -233,9 +233,11 @@
       showToast('视频上传成功');
       loadVideoList();
     });
-    setupUploadZone(el.logoUploadZone, el.logoFileInput, '/api/upload/logo', 'logo', () => {
+    setupUploadZone(el.logoUploadZone, el.logoFileInput, '/api/upload/logo', 'logo', (data) => {
       showToast('Logo 图片上传成功');
-      loadLogoList();
+      el.showLogo.checked = true;
+      loadLogoList(data?.filename);
+      syncConfig();
     });
 
     // Record
@@ -405,7 +407,7 @@
     .then(res => res.json())
     .then(data => {
       if (data.error) showToast(data.error, 'error');
-      else onSuccess();
+      else onSuccess(data);
     })
     .catch(err => showToast('上传失败', 'error'));
   }
@@ -599,7 +601,7 @@
       .catch(() => showToast('删除失败', 'error'));
   }
 
-  function loadLogoList() {
+  function loadLogoList(selectFilename) {
     fetch('/api/logos')
       .then(res => res.json())
       .then(logos => {
@@ -609,15 +611,23 @@
           const item = document.createElement('div');
           item.className = 'file-item';
           item.innerHTML = `<span class="file-name" title="${l.name}">${l.name}</span>
-            <button class="delete-btn" data-name="${l.name}"><svg viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>`;
-          item.querySelector('.delete-btn').addEventListener('click', () => deleteLogo(l.name));
+            <button class="delete-btn" data-name="${l.filename}"><svg viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>`;
+          item.querySelector('.delete-btn').addEventListener('click', () => deleteLogo(l.filename));
           el.logoList.appendChild(item);
           const opt = document.createElement('option');
-          opt.value = l.name;
+          opt.value = l.filename;
           opt.textContent = l.name;
           el.logoSelect.appendChild(opt);
         });
-        el.logoSelect.value = renderer?.config?.logoUrl || '';
+
+        const targetVal = selectFilename || renderer?.config?.logoUrl || (logos.length > 0 ? logos[logos.length - 1].filename : '');
+        if (targetVal) {
+          el.logoSelect.value = targetVal;
+          if (renderer) {
+            renderer.loadLogo(targetVal);
+            el.showLogo.checked = true;
+          }
+        }
       });
   }
 
