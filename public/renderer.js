@@ -151,24 +151,10 @@ window.LEDRenderer = class LEDRenderer {
     // Update internal timers
     this.bgTime += dt * cfg.bgSpeed;
     this.textOffsetX += cfg.scrollSpeed * (dt / 16.666); // approx 60fps base
-    this.bgOffsetX += cfg.scrollSpeed * (dt / 16.666);
 
-    // Render Background to offscreen canvas, then blit with cylinder wrap
+    // Render Background in-place (ambient breathing & pulsing motion, independent of text scroll)
     ctx.save();
-    if (cfg.bgType === 'video' || cfg.bgType === 'solid') {
-      // Non-scrolling types rendered directly
-      this.renderBackground(ctx, w, h, this.bgTime, cfg.bgSpeed, cfg.bgColor1, cfg.bgColor2, cfg.bgType);
-    } else {
-      const oCtx = this.offscreenCtx;
-      oCtx.clearRect(0, 0, w, h);
-      this.renderBackground(oCtx, w, h, this.bgTime, cfg.bgSpeed, cfg.bgColor1, cfg.bgColor2, cfg.bgType);
-      // Cylindrical blit: offset wraps like text
-      const loopW = cfg.activeWidth || w;
-      const offset = ((this.bgOffsetX % loopW) + loopW) % loopW;
-      for (let x = -offset; x < w; x += loopW) {
-        ctx.drawImage(this.offscreen, x, 0);
-      }
-    }
+    this.renderBackground(ctx, w, h, this.bgTime, cfg.bgSpeed, cfg.bgColor1, cfg.bgColor2, cfg.bgType);
     ctx.restore();
 
     // Render Text
@@ -649,31 +635,18 @@ window.LEDRenderer = class LEDRenderer {
     // Use cached effectivePeriod (computed in computeLoopFrames)
     const effectivePeriod = this._cachedEffectivePeriod || w;
 
-    // Position-based offsets — exact, no floating-point accumulation drift
+    // Position-based text offset — exact, no floating-point accumulation drift
     this.textOffsetX = phase * effectivePeriod;
-    this.bgOffsetX   = phase * effectivePeriod;
 
-    // Phase-locked bg animation time.
-    // BG_ANIM_CYCLES=20 ensures all frequencies (multiples of 0.1) return to start:
-    //   tSec_end = 20 * 2π → sin/cos(20*2π*k) = sin/cos(0) for any k that is multiple of 0.05
-    const BG_ANIM_CYCLES = 20;
-    const bgTime = phase * BG_ANIM_CYCLES * 2 * Math.PI * 1000 * cfg.bgSpeed;
+    // Phase-locked background breathing animation time:
+    // Completes exactly 2 organic breathing cycles (4π) over the video loop.
+    // Since sin(0) === sin(4π) and cos(0) === cos(4π), frame N === frame 0 EXACTLY!
+    const BG_BREATH_CYCLES = 2;
+    const bgTime = phase * BG_BREATH_CYCLES * 2 * Math.PI * 1000;
 
-    // Render background in loop mode (particles/matrix frozen)
     this._loopRenderMode = true;
     ctx.save();
-    if (cfg.bgType === 'video' || cfg.bgType === 'solid') {
-      this.renderBackground(ctx, w, h, bgTime, cfg.bgSpeed, cfg.bgColor1, cfg.bgColor2, cfg.bgType);
-    } else {
-      const oCtx = this.offscreenCtx;
-      oCtx.clearRect(0, 0, w, h);
-      this.renderBackground(oCtx, w, h, bgTime, cfg.bgSpeed, cfg.bgColor1, cfg.bgColor2, cfg.bgType);
-      const loopW = cfg.activeWidth || w;
-      const offset = ((this.bgOffsetX % loopW) + loopW) % loopW;
-      for (let x = -offset; x < w; x += loopW) {
-        ctx.drawImage(this.offscreen, x, 0);
-      }
-    }
+    this.renderBackground(ctx, w, h, bgTime, cfg.bgSpeed, cfg.bgColor1, cfg.bgColor2, cfg.bgType);
     ctx.restore();
     this._loopRenderMode = false;
 
