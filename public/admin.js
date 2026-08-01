@@ -424,7 +424,7 @@
       textShadow: el.textShadow.checked,
       textOutline: el.textOutline.checked,
       outlineColor: el.outlineColor.value,
-      activeWidth: parseInt(el.activeWidth.value) || 1728,
+      activeWidth: parseInt(el.activeWidth.value) || 1760,
       scrollSpeed: parseFloat(el.scrollSpeed.value),
       textVertical: parseInt(el.textVertical.value),
       bgType: activeBgType,

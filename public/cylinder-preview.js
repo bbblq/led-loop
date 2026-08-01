@@ -12,14 +12,14 @@ window.CylinderPreview = class CylinderPreview {
     // Scale: 1 Three.js unit ≈ 5 LED pixels
     this.S = 5;
     const S = this.S;
-    this.activeWidth = 1728;
+    this.activeWidth = 1760;
     this.cylRadius  = this.activeWidth / (2 * Math.PI) / S; // radius for active perimeter
     this.cylHeight  = 800 / S;                               // = 160 units
 
     this._init();
   }
 
-  setActiveWidth(activeWidth = 1728) {
+  setActiveWidth(activeWidth = 1760) {
     this.activeWidth = activeWidth;
     if (this.texture) {
       this.texture.repeat.set(activeWidth / 1920, 1);

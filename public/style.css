@@ -362,11 +362,13 @@ body {
 }
 
 
-/* Controls Section */
+/* Controls Section (Single Column Layout) */
 .controls-section {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 20px;
+  max-width: 1000px;
+  margin: 0 auto;
 }
 .control-panel {
   background: var(--bg-panel);

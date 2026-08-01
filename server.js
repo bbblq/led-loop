@@ -71,13 +71,19 @@ const defaultPresets = [
       textOutline: false,
       outlineColor: "#000000",
       scrollSpeed: 3,
-      activeWidth: 1920,
+      activeWidth: 1760,
       textVertical: 50,
       bgType: "gradient-flow",
       bgColor1: "#0a0a2e",
       bgColor2: "#1a1a4e",
       bgSpeed: 1,
-      bgVideo: ""
+      bgVideo: "",
+      showLogo: false,
+      logoUrl: "",
+      logoSize: 150,
+      logoPosX: 880,
+      logoPosY: 150,
+      logoOpacity: 100
     }
   },
   {
@@ -95,12 +101,19 @@ const defaultPresets = [
       textOutline: true,
       outlineColor: "#ff0000",
       scrollSpeed: 4,
+      activeWidth: 1760,
       textVertical: 50,
       bgType: "neon-pulse",
       bgColor1: "#240046",
       bgColor2: "#7b2cbf",
       bgSpeed: 1.5,
-      bgVideo: ""
+      bgVideo: "",
+      showLogo: false,
+      logoUrl: "",
+      logoSize: 150,
+      logoPosX: 880,
+      logoPosY: 150,
+      logoOpacity: 100
     }
   }
 ];

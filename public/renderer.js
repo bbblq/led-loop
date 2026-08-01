@@ -20,7 +20,7 @@ window.LEDRenderer = class LEDRenderer {
       textOutline: false,
       outlineColor: '#000000',
       scrollSpeed: 3,
-      activeWidth: 1920, // Default active perimeter (1920px)
+      activeWidth: 1760, // Default active perimeter (1760px)
       textVertical: 50, // percentage 0-100
       bgType: 'gradient-flow',
       bgColor1: '#0a0a2e',
@@ -30,8 +30,8 @@ window.LEDRenderer = class LEDRenderer {
       showLogo: false,
       logoUrl: '',
       logoSize: 150,
-      logoPosX: 50,
-      logoPosY: 15,
+      logoPosX: 880, // center point X in px
+      logoPosY: 150, // center point Y in px
       logoOpacity: 100
     };
 
@@ -218,8 +218,10 @@ window.LEDRenderer = class LEDRenderer {
     const sizeH = sizeW * aspect;
 
     const loopW = cfg.activeWidth || w;
-    const baseX = (cfg.logoPosX / 100) * loopW - sizeW / 2;
-    const posY = (cfg.logoPosY / 100) * h - sizeH / 2;
+    const centerX = cfg.logoPosX !== undefined ? cfg.logoPosX : (loopW / 2);
+    const centerY = cfg.logoPosY !== undefined ? cfg.logoPosY : (h / 2);
+    const baseX = centerX - sizeW / 2;
+    const posY = centerY - sizeH / 2;
     const opacity = Math.min(1, Math.max(0.05, (cfg.logoOpacity ?? 100) / 100));
 
     ctx.save();

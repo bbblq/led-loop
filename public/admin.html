@@ -206,7 +206,7 @@
         <div class="panel-body">
           <div class="form-group">
             <label>屏体有效周长 (px) <span class="help-tip" title="画面分辨率维持 1920×800，但动画按屏体实际周长无缝循环。全画幅填 1920，特殊拼接屏填实际显示像素数（如 1760）。">ℹ️</span></label>
-            <input type="number" id="active-width" min="100" max="7680" step="1" value="1920">
+            <input type="number" id="active-width" min="100" max="7680" step="1" value="1760">
           </div>
           <div class="form-group">
             <label>滚动速度 (x倍)</label>
@@ -221,6 +221,10 @@
               <input type="range" id="text-vertical" min="0" max="100" value="50">
               <span class="range-val">50</span>
             </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Logo 水印设置 -->
       <div class="control-panel">
         <div class="panel-header">
@@ -248,17 +252,17 @@
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label>X 轴位置 (%)</label>
+              <label>Logo 中心 X 坐标 (px)</label>
               <div class="range-wrapper">
-                <input type="range" id="logo-pos-x" min="0" max="100" step="1" value="50">
-                <span class="range-val">50</span>
+                <input type="range" id="logo-pos-x" min="0" max="1920" step="1" value="880">
+                <span class="range-val">880</span>
               </div>
             </div>
             <div class="form-group">
-              <label>Y 轴位置 (%)</label>
+              <label>Logo 中心 Y 坐标 (px)</label>
               <div class="range-wrapper">
-                <input type="range" id="logo-pos-y" min="0" max="100" step="1" value="15">
-                <span class="range-val">15</span>
+                <input type="range" id="logo-pos-y" min="0" max="800" step="1" value="150">
+                <span class="range-val">150</span>
               </div>
             </div>
           </div>
