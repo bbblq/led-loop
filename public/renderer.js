@@ -728,5 +728,10 @@ window.LEDRenderer = class LEDRenderer {
     ctx.save();
     this.renderText(ctx, w, h, cfg);
     ctx.restore();
+
+    // Render Logo Watermark / Icon
+    ctx.save();
+    this.renderLogo(ctx, w, h, cfg);
+    ctx.restore();
   }
 }
