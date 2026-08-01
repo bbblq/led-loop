@@ -1,5 +1,5 @@
 {
-  "activePresetId": "preset-1",
+  "activePresetId": "preset-1785557274897",
   "presets": [
     {
       "id": "preset-1",
@@ -15,14 +15,15 @@
         "textShadow": false,
         "textOutline": false,
         "outlineColor": "#000000",
-        "scrollSpeed": 3,
+        "scrollSpeed": 2,
         "textVertical": 50,
         "bgType": "particles",
-        "bgColor1": "#4a2b02",
-        "bgColor2": "#073a7d",
+        "bgColor1": "#fe4343",
+        "bgColor2": "#093f86",
         "bgSpeed": 1,
         "bgVideo": "",
-        "bgVideoUrl": ""
+        "bgVideoUrl": "",
+        "activeWidth": 1728
       }
     },
     {
@@ -46,6 +47,30 @@
         "bgColor2": "#7b2cbf",
         "bgSpeed": 1.5,
         "bgVideo": ""
+      }
+    },
+    {
+      "id": "preset-1785557274897",
+      "name": "自定义场景 1",
+      "config": {
+        "text": "接力出版社辉煌腾达",
+        "fontSize": 120,
+        "fontWeight": "900",
+        "textColor": "#fceb31",
+        "textGap": 200,
+        "fontFamily": "",
+        "textGlow": true,
+        "textShadow": false,
+        "textOutline": false,
+        "outlineColor": "#000000",
+        "activeWidth": 1760,
+        "scrollSpeed": 1.5,
+        "textVertical": 50,
+        "bgType": "particles",
+        "bgColor1": "#e74e40",
+        "bgColor2": "#306cc0",
+        "bgSpeed": 0.6,
+        "bgVideoUrl": ""
       }
     }
   ],

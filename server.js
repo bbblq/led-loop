@@ -70,6 +70,7 @@ const defaultPresets = [
       textOutline: false,
       outlineColor: "#000000",
       scrollSpeed: 3,
+      activeWidth: 1920,
       textVertical: 50,
       bgType: "gradient-flow",
       bgColor1: "#0a0a2e",

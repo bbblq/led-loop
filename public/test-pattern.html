@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>LED屏分辨率测试图生成器</title>
+<style>
+  body { background: #111; color: #eee; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+  h1 { margin-bottom: 10px; }
+  p { color: #999; margin: 5px 0; }
+  canvas { border: 1px solid #444; margin: 20px 0; max-width: 100%; height: auto; }
+  .btns { display: flex; gap: 12px; margin: 15px 0; }
+  button { padding: 10px 24px; border: none; border-radius: 8px; background: #4f8cff; color: #fff; font-size: 15px; cursor: pointer; }
+  button:hover { background: #3a6fd8; }
+</style>
+</head>
+<body>
+<h1>🖥️ LED屏分辨率测试图</h1>
+<p>1920 × 800 — 检查圆柱屏是否完整显示所有像素</p>
+<div class="btns">
+  <button onclick="downloadPNG()">📥 下载 PNG 测试图</button>
+</div>
+<canvas id="cv" width="1920" height="800"></canvas>
+
+<script>
+const W = 1920, H = 800;
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+
+function draw() {
+  // Black background
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, W, H);
+
+  // === 1. Vertical strips every 192px (10 sections) with alternating colors ===
+  const sectionW = 192; // 1920 / 10
+  const colors = ['#ff0000','#ff8800','#ffff00','#00ff00','#00ffcc','#00aaff','#0044ff','#8800ff','#ff00ff','#ff0066'];
+  for (let i = 0; i < 10; i++) {
+    ctx.fillStyle = colors[i];
+    ctx.globalAlpha = 0.15;
+    ctx.fillRect(i * sectionW, 0, sectionW, H);
+  }
+  ctx.globalAlpha = 1.0;
+
+  // === 2. Grid lines ===
+  // Every 100px - thin line
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = 1;
+  for (let x = 100; x < W; x += 100) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = 100; y < H; y += 100) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  // Every 480px - thicker line (quarter marks)
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+  ctx.lineWidth = 2;
+  for (let x = 480; x < W; x += 480) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+
+  // === 3. Top ruler with pixel numbers ===
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.fillRect(0, 0, W, 50);
+  
+  ctx.font = 'bold 16px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  
+  for (let x = 0; x <= W; x += 10) {
+    const isMajor = x % 100 === 0;
+    const isMid = x % 50 === 0;
+    ctx.strokeStyle = isMajor ? '#fff' : (isMid ? '#aaa' : '#666');
+    ctx.lineWidth = isMajor ? 2 : 1;
+    const tickH = isMajor ? 20 : (isMid ? 12 : 6);
+    ctx.beginPath(); ctx.moveTo(x, 50 - tickH); ctx.lineTo(x, 50); ctx.stroke();
+    
+    if (isMajor) {
+      ctx.fillStyle = '#fff';
+      ctx.fillText(x.toString(), x, 4);
+    }
+  }
+
+  // === 4. Bottom ruler ===
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.fillRect(0, H - 50, W, 50);
+  
+  ctx.textBaseline = 'bottom';
+  for (let x = 0; x <= W; x += 10) {
+    const isMajor = x % 100 === 0;
+    const isMid = x % 50 === 0;
+    ctx.strokeStyle = isMajor ? '#fff' : (isMid ? '#aaa' : '#666');
+    ctx.lineWidth = isMajor ? 2 : 1;
+    const tickH = isMajor ? 20 : (isMid ? 12 : 6);
+    ctx.beginPath(); ctx.moveTo(x, H - 50); ctx.lineTo(x, H - 50 + tickH); ctx.stroke();
+    
+    if (isMajor) {
+      ctx.fillStyle = '#fff';
+      ctx.fillText(x.toString(), x, H - 4);
+    }
+  }
+
+  // === 5. Left ruler (Y axis) ===
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.fillRect(0, 50, 50, H - 100);
+  
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.font = 'bold 12px monospace';
+  for (let y = 100; y < H; y += 100) {
+    ctx.fillStyle = '#fff';
+    ctx.fillText(y.toString(), 4, y);
+  }
+
+  // === 6. Big section numbers in center ===
+  ctx.font = 'bold 120px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i < 10; i++) {
+    ctx.fillStyle = colors[i];
+    ctx.globalAlpha = 0.5;
+    ctx.fillText((i + 1).toString(), i * sectionW + sectionW / 2, H / 2);
+  }
+  ctx.globalAlpha = 1.0;
+
+  // === 7. Pixel range labels for each section ===
+  ctx.font = 'bold 18px monospace';
+  ctx.textBaseline = 'top';
+  for (let i = 0; i < 10; i++) {
+    const x1 = i * sectionW;
+    const x2 = (i + 1) * sectionW;
+    ctx.fillStyle = '#fff';
+    ctx.fillText(`${x1}-${x2}`, x1 + sectionW / 2, 55);
+  }
+
+  // === 8. Edge markers - critical for detecting missing pixels ===
+  // LEFT edge: red block 0-20px
+  ctx.fillStyle = '#ff0000';
+  ctx.fillRect(0, 50, 20, H - 100);
+  ctx.font = 'bold 14px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#fff';
+  ctx.save();
+  ctx.translate(10, H/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText('← LEFT EDGE 0px', 0, 0);
+  ctx.restore();
+
+  // RIGHT edge: green block 1900-1920px
+  ctx.fillStyle = '#00ff00';
+  ctx.fillRect(W - 20, 50, 20, H - 100);
+  ctx.fillStyle = '#000';
+  ctx.save();
+  ctx.translate(W - 10, H/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText('RIGHT EDGE 1920px →', 0, 0);
+  ctx.restore();
+
+  // === 9. Corner markers ===
+  const cornerSize = 40;
+  // Top-left: red
+  ctx.fillStyle = '#ff0000';
+  ctx.fillRect(0, 0, cornerSize, cornerSize);
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('0,0', 3, 3);
+  
+  // Top-right: green
+  ctx.fillStyle = '#00ff00';
+  ctx.fillRect(W - cornerSize, 0, cornerSize, cornerSize);
+  ctx.fillStyle = '#000'; ctx.textAlign = 'right';
+  ctx.fillText('1920,0', W - 3, 3);
+  
+  // Bottom-left: blue
+  ctx.fillStyle = '#0088ff';
+  ctx.fillRect(0, H - cornerSize, cornerSize, cornerSize);
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+  ctx.fillText('0,800', 3, H - 3);
+  
+  // Bottom-right: yellow
+  ctx.fillStyle = '#ffff00';
+  ctx.fillRect(W - cornerSize, H - cornerSize, cornerSize, cornerSize);
+  ctx.fillStyle = '#000'; ctx.textAlign = 'right';
+  ctx.fillText('1920,800', W - 3, H - 3);
+
+  // === 10. Center crosshair ===
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5,5]);
+  ctx.beginPath(); ctx.moveTo(W/2, 60); ctx.lineTo(W/2, H-60); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(30, H/2); ctx.lineTo(W-30, H/2); ctx.stroke();
+  ctx.setLineDash([]);
+  
+  ctx.font = 'bold 16px monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillStyle = '#fff';
+  ctx.fillText('960,400 (CENTER)', W/2, H/2 - 8);
+
+  // === 11. Seam test: where left edge meets right edge on cylinder ===
+  // Draw matching pattern at left and right edges
+  ctx.font = 'bold 24px monospace';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  
+  // Left side seam marker
+  ctx.fillStyle = '#ff4444';
+  ctx.fillRect(0, H/2 - 60, 4, 120);
+  ctx.fillStyle = '#ff4444';
+  ctx.fillText('◀ 接缝处', 25, H/2 + 80);
+  
+  // Right side seam marker  
+  ctx.fillStyle = '#44ff44';
+  ctx.fillRect(W - 4, H/2 - 60, 4, 120);
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#44ff44';
+  ctx.fillText('接缝处 ▶', W - 25, H/2 + 80);
+
+  // === 12. Fine pixel test strip at y=300-340 ===
+  ctx.fillStyle = 'rgba(0,0,0,0.8)';
+  ctx.fillRect(0, 280, W, 60);
+  // Alternating 1px, 2px, 5px, 10px blocks
+  const testY = 290;
+  const patterns = [
+    { label: '1px', size: 1, startX: 100 },
+    { label: '2px', size: 2, startX: 400 },
+    { label: '5px', size: 5, startX: 700 },
+    { label: '10px', size: 10, startX: 1000 },
+    { label: '20px', size: 20, startX: 1300 },
+  ];
+  ctx.font = 'bold 12px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  for (const p of patterns) {
+    ctx.fillStyle = '#aaa';
+    ctx.fillText(p.label, p.startX + 100, 282);
+    for (let i = 0; i < 40; i++) {
+      ctx.fillStyle = i % 2 === 0 ? '#fff' : '#000';
+      ctx.fillRect(p.startX + i * p.size, testY, p.size, 30);
+    }
+  }
+
+  // === 13. Info text ===
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.fillRect(W/2 - 350, H - 120, 700, 40);
+  ctx.font = 'bold 20px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ffcc00';
+  ctx.fillText('测试图 1920×800 — 如果能看到全部10个数字 = 分辨率正确', W/2, H - 100);
+}
+
+draw();
+
+function downloadPNG() {
+  const link = document.createElement('a');
+  link.download = 'led-test-pattern-1920x800.png';
+  link.href = cv.toDataURL('image/png');
+  link.click();
+}
+</script>
+</body>
+</html>

@@ -20,6 +20,7 @@ window.LEDRenderer = class LEDRenderer {
       textOutline: false,
       outlineColor: '#000000',
       scrollSpeed: 3,
+      activeWidth: 1920, // Default active perimeter (1920px)
       textVertical: 50, // percentage 0-100
       bgType: 'gradient-flow',
       bgColor1: '#0a0a2e',
@@ -162,11 +163,11 @@ window.LEDRenderer = class LEDRenderer {
       oCtx.clearRect(0, 0, w, h);
       this.renderBackground(oCtx, w, h, this.bgTime, cfg.bgSpeed, cfg.bgColor1, cfg.bgColor2, cfg.bgType);
       // Cylindrical blit: offset wraps like text
-      const offset = ((this.bgOffsetX % w) + w) % w;
-      // Draw shifted copy (entering from right)
-      ctx.drawImage(this.offscreen, -offset, 0);
-      // Draw second copy to fill the gap on the right
-      ctx.drawImage(this.offscreen, w - offset, 0);
+      const loopW = cfg.activeWidth || w;
+      const offset = ((this.bgOffsetX % loopW) + loopW) % loopW;
+      for (let x = -offset; x < w; x += loopW) {
+        ctx.drawImage(this.offscreen, x, 0);
+      }
     }
     ctx.restore();
 
@@ -183,29 +184,34 @@ window.LEDRenderer = class LEDRenderer {
     const tSec = t / 1000;
     const rgb1 = this.hexToRgb(color1);
     const rgb2 = this.hexToRgb(color2);
+    const cfg = this._config;
+    const loopW = cfg.activeWidth || w;
 
     switch (type) {
       case 'gradient-flow': {
-        const x1 = w/2 + Math.cos(tSec) * w/2;
-        const y1 = h/2 + Math.sin(tSec * 0.8) * h/2;
-        const x2 = w/2 + Math.cos(tSec * 1.2 + Math.PI) * w/2;
-        const y2 = h/2 + Math.sin(tSec * 1.1 + Math.PI) * h/2;
-        
-        const grad = ctx.createLinearGradient(x1, y1, x2, y2);
+        // Horizontal periodic gradient over loopW (color1 -> color2 -> color1)
+        const grad = ctx.createLinearGradient(0, 0, loopW, 0);
         grad.addColorStop(0, color1);
-        grad.addColorStop(1, color2);
+        grad.addColorStop(0.5, color2);
+        grad.addColorStop(1, color1);
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, w, h);
         
-        // light streaks
+        // Light streaks using spatial frequency periodic over loopW
         ctx.globalCompositeOperation = 'screen';
-        ctx.fillStyle = `rgba(${rgb2.r}, ${rgb2.g}, ${rgb2.b}, 0.3)`;
+        ctx.fillStyle = `rgba(${rgb2.r}, ${rgb2.g}, ${rgb2.b}, 0.35)`;
         ctx.beginPath();
-        ctx.moveTo(0, h * 0.2 + Math.sin(tSec) * 100);
-        ctx.lineTo(w, h * 0.8 + Math.cos(tSec * 1.3) * 100);
+        for (let x = 0; x <= w; x += 15) {
+          const normX = (x % loopW) / loopW;
+          const wave = Math.sin(normX * Math.PI * 2 + tSec * 0.8);
+          const y1 = h * 0.3 + wave * 80;
+          if (x === 0) ctx.moveTo(x, y1);
+          else ctx.lineTo(x, y1);
+        }
         ctx.lineTo(w, h);
         ctx.lineTo(0, h);
         ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
         break;
       }
       case 'particles': {
@@ -217,18 +223,23 @@ window.LEDRenderer = class LEDRenderer {
 
         ctx.fillStyle = '#ffffff';
         for (let p of this.particles) {
-          // In loop-render mode, keep particles static in the tile so frame 0 === frame N
           if (!this._loopRenderMode) {
             p.x -= p.speedX * speed * 2;
-            if (p.x < 0) p.x += w;
+            if (p.x < 0) p.x += loopW;
+            if (p.x >= loopW) p.x -= loopW;
           }
           
           const alpha = (Math.sin(tSec * p.blinkSpeed * 100 + p.phase) + 1) / 2;
           ctx.globalAlpha = 0.2 + alpha * 0.8;
           
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-          ctx.fill();
+          for (let k = -1; k <= Math.ceil(w / loopW); k++) {
+            const px = p.x + k * loopW;
+            if (px >= -20 && px <= w + 20) {
+              ctx.beginPath();
+              ctx.arc(px, p.y, p.size, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
         }
         ctx.globalAlpha = 1.0;
         break;
@@ -238,12 +249,17 @@ window.LEDRenderer = class LEDRenderer {
         ctx.fillRect(0, 0, w, h);
         
         for (let i = 0; i < 4; i++) {
+          const m1 = i + 1;
+          const m2 = (i + 2) * 2;
           ctx.beginPath();
           ctx.moveTo(0, h);
           
-          for (let x = 0; x <= w; x += 20) {
-            const y = h * 0.5 + Math.sin(x * 0.005 + tSec + i) * 100 + Math.sin(x * 0.01 - tSec * 1.5) * 50;
-            ctx.lineTo(x, y + i * 40 - 60);
+          for (let x = 0; x <= w; x += 15) {
+            const normX = (x % loopW) / loopW;
+            const y = h * 0.5 
+              + Math.sin(normX * Math.PI * 2 * m1 + tSec + i) * 80 
+              + Math.cos(normX * Math.PI * 2 * m2 - tSec * 1.5) * 40;
+            ctx.lineTo(x, y + i * 35 - 50);
           }
           
           ctx.lineTo(w, h);
@@ -264,12 +280,11 @@ window.LEDRenderer = class LEDRenderer {
         ctx.font = '24px monospace';
         ctx.textAlign = 'center';
         for (let m of this.matrixChars) {
-          // In loop-render mode, keep chars static in the tile so frame 0 === frame N
           if (!this._loopRenderMode) {
             m.y += m.speedY * speed * 5;
             if (m.y > h + 30) {
               m.y = -30;
-              m.x = Math.random() * w;
+              m.x = Math.random() * loopW;
               m.char = String.fromCharCode(0x30A0 + Math.random() * 95);
             }
             if (Math.random() < 0.05) {
@@ -278,7 +293,12 @@ window.LEDRenderer = class LEDRenderer {
           }
           const alpha = (Math.sin(tSec * 2 + m.phase) + 1) / 2;
           ctx.fillStyle = `rgba(0, 255, 0, ${0.3 + alpha * 0.7})`;
-          ctx.fillText(m.char, m.x, m.y);
+          for (let k = -1; k <= Math.ceil(w / loopW); k++) {
+            const mx = m.x + k * loopW;
+            if (mx >= -30 && mx <= w + 30) {
+              ctx.fillText(m.char, mx, m.y);
+            }
+          }
         }
         break;
       }
@@ -287,19 +307,24 @@ window.LEDRenderer = class LEDRenderer {
         ctx.fillRect(0, 0, w, h);
         
         const colors = [
-          'rgba(75, 0, 130, 0.4)', // indigo
-          'rgba(0, 255, 128, 0.3)', // green
+          'rgba(75, 0, 130, 0.4)',  // indigo
+          'rgba(0, 255, 128, 0.3)',  // green
           'rgba(128, 0, 128, 0.4)', // purple
-          'rgba(255, 105, 180, 0.3)', // pink
-          'rgba(0, 255, 255, 0.3)' // cyan
+          'rgba(255, 105, 180, 0.3)',// pink
+          'rgba(0, 255, 255, 0.3)'   // cyan
         ];
         
         ctx.globalCompositeOperation = 'screen';
         for (let i = 0; i < 5; i++) {
+          const m1 = i + 1;
+          const m2 = i + 2;
           ctx.beginPath();
           ctx.moveTo(0, h);
-          for (let x = 0; x <= w; x += 30) {
-            const y = h * 0.3 + Math.sin(x * 0.002 + tSec * 0.5 + i * 1.2) * 150 + Math.cos(x * 0.005 - tSec * 0.3) * 100;
+          for (let x = 0; x <= w; x += 15) {
+            const normX = (x % loopW) / loopW;
+            const y = h * 0.3 
+              + Math.sin(normX * Math.PI * 2 * m1 + tSec * 0.5 + i * 1.2) * 140 
+              + Math.cos(normX * Math.PI * 2 * m2 - tSec * 0.3) * 90;
             ctx.lineTo(x, y + i * 20);
           }
           ctx.lineTo(w, h);
@@ -307,6 +332,7 @@ window.LEDRenderer = class LEDRenderer {
           ctx.fillStyle = colors[i];
           ctx.fill();
         }
+        ctx.globalCompositeOperation = 'source-over';
         break;
       }
       case 'neon-pulse': {
@@ -329,6 +355,8 @@ window.LEDRenderer = class LEDRenderer {
           ctx.lineTo(w, y);
           ctx.stroke();
         }
+        ctx.globalAlpha = 1.0;
+        ctx.shadowBlur = 0;
         break;
       }
       case 'nebula': {
@@ -345,62 +373,88 @@ window.LEDRenderer = class LEDRenderer {
         
         for (let i = 0; i < circles.length; i++) {
           const c = circles[i];
-          const cx = w/2 + Math.cos(tSec * c.speed + c.phase) * (w * 0.3);
-          const cy = h/2 + Math.sin(tSec * c.speed + c.phase) * (h * 0.3);
+          const cxBase = loopW / 2 + Math.cos(tSec * c.speed + c.phase) * (loopW * 0.3);
+          const cy = h / 2 + Math.sin(tSec * c.speed + c.phase) * (h * 0.3);
           
-          const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, c.r);
-          grad.addColorStop(0, c.color);
-          grad.addColorStop(1, 'rgba(0,0,0,0)');
-          
-          ctx.fillStyle = grad;
-          ctx.beginPath();
-          ctx.arc(cx, cy, c.r, 0, Math.PI * 2);
-          ctx.fill();
+          for (let k = -1; k <= Math.ceil(w / loopW); k++) {
+            const cx = cxBase + k * loopW;
+            const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, c.r);
+            grad.addColorStop(0, c.color);
+            grad.addColorStop(1, 'rgba(0,0,0,0)');
+            
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(cx, cy, c.r, 0, Math.PI * 2);
+            ctx.fill();
+          }
         }
+        ctx.globalCompositeOperation = 'source-over';
         break;
       }
       case 'cyber-grid': {
-        ctx.fillStyle = '#050510';
+        // Deep cyberpunk dark background with gradient glow
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
+        bgGrad.addColorStop(0, '#03030c');
+        bgGrad.addColorStop(0.5, color1);
+        bgGrad.addColorStop(1, '#020208');
+        ctx.fillStyle = bgGrad;
         ctx.fillRect(0, 0, w, h);
-        
-        ctx.strokeStyle = color2;
+
         ctx.lineWidth = 2;
         ctx.shadowColor = color2;
-        ctx.shadowBlur = 5;
-        
-        const vanishingY = h * 0.2;
-        const startY = h * 0.4;
-        
-        // Vertical lines
-        for (let i = -10; i <= 10; i++) {
+        ctx.shadowBlur = 8;
+        ctx.strokeStyle = color2;
+
+        const gridCols = 20; // 20 vertical pillars around loopW
+        const colSpacing = loopW / gridCols;
+
+        // 1. Vertical straight neon grid lines (perfect 360-degree cylinder wireframe)
+        for (let x = 0; x <= w; x += colSpacing) {
+          const modX = ((x % loopW) + loopW) % loopW;
+          const pulse = 0.4 + 0.6 * (Math.sin(modX * Math.PI * 2 / loopW * 4 + tSec * 2) + 1) / 2;
+          ctx.globalAlpha = pulse;
           ctx.beginPath();
-          ctx.moveTo(w/2 + i * 20, vanishingY);
-          ctx.lineTo(w/2 + i * 200, h);
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, h);
           ctx.stroke();
         }
-        
-        // Horizontal lines (perspective)
-        // Use sin-based animation so it loops perfectly with phase-based recording
+        ctx.globalAlpha = 1.0;
+
+        // 2. Horizontal perspective moving neon rings
+        const startY = h * 0.05;
+        const endY = h * 0.95;
         const tMod = (Math.sin(tSec * 2) + 1) / 2;
-        for (let i = 0; i < 15; i++) {
-          const p = (i + tMod) / 15; // 0 to 1
-          const y = startY + Math.pow(p, 2) * (h - startY);
-          if (y > startY) {
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(w, y);
-            ctx.stroke();
-          }
-        }
+        const lineCount = 14;
         
-        // Scanning line
-        const scanY = startY + ((Math.sin(tSec) + 1) / 2) * (h - startY);
+        ctx.shadowBlur = 12;
+        for (let i = 0; i < lineCount; i++) {
+          const p = (i + tMod) / lineCount;
+          const y = startY + Math.pow(p, 1.8) * (endY - startY);
+          const alpha = 0.2 + p * 0.8;
+          
+          ctx.globalAlpha = alpha;
+          ctx.strokeStyle = color2;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(w, y);
+          ctx.stroke();
+        }
+
+        // 3. Cyber Scanning Laser Beam (glowing white/cyan horizontal laser)
+        const scanP = (Math.sin(tSec * 1.5) + 1) / 2;
+        const scanY = startY + scanP * (endY - startY);
+        ctx.globalAlpha = 0.9;
         ctx.shadowBlur = 20;
+        ctx.shadowColor = color1;
         ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.moveTo(0, scanY);
         ctx.lineTo(w, scanY);
         ctx.stroke();
+
+        ctx.globalAlpha = 1.0;
+        ctx.shadowBlur = 0;
         break;
       }
       case 'flame': {
@@ -413,10 +467,11 @@ window.LEDRenderer = class LEDRenderer {
         
         for (let i = 0; i < cols; i++) {
           const x = i * colWidth;
-          const noise = Math.sin(i * 0.5 + tSec * 5) + Math.sin(i * 0.1 - tSec * 2);
-          const flameH = h * 0.4 + noise * h * 0.3;
+          const normX = (x % loopW) / loopW;
+          const noise = Math.sin(normX * Math.PI * 2 * 6 + tSec * 5) + Math.sin(normX * Math.PI * 2 * 12 - tSec * 2);
+          const flameH = h * 0.4 + noise * h * 0.25;
           
-          const grad = ctx.createLinearGradient(0, h, 0, h - flameH);
+          const grad = ctx.createLinearGradient(0, h, 0, Math.max(0, h - flameH));
           grad.addColorStop(0, 'rgba(255, 50, 0, 0.8)');
           grad.addColorStop(0.4, 'rgba(255, 150, 0, 0.6)');
           grad.addColorStop(0.8, 'rgba(255, 255, 0, 0.2)');
@@ -425,6 +480,7 @@ window.LEDRenderer = class LEDRenderer {
           ctx.fillStyle = grad;
           ctx.fillRect(x, h - flameH, colWidth + 1, flameH);
         }
+        ctx.globalCompositeOperation = 'source-over';
         break;
       }
       case 'video': {
@@ -451,11 +507,12 @@ window.LEDRenderer = class LEDRenderer {
     const textW = ctx.measureText(cfg.text).width;
     if (textW <= 0) return;
 
-    // Effective period: round UP to nearest multiple of canvas width.
-    // This ensures text period and bg period (=w) are always co-divisible,
+    // Effective period: round UP to nearest multiple of active display width (e.g. 1728).
+    // This ensures text period and bg period (=loopW) are always co-divisible,
     // so both return to position 0 at exactly the same frame → perfect loop.
-    const rawPeriod = Math.max(textW + cfg.textGap, w);
-    const effectivePeriod = Math.ceil(rawPeriod / w) * w;
+    const loopW = cfg.activeWidth || w;
+    const rawPeriod = Math.max(textW + cfg.textGap, loopW);
+    const effectivePeriod = Math.ceil(rawPeriod / loopW) * loopW;
     
     // Normalize offset to [0, effectivePeriod)
     const offset = ((this.textOffsetX % effectivePeriod) + effectivePeriod) % effectivePeriod;
@@ -516,11 +573,16 @@ window.LEDRenderer = class LEDRenderer {
 
   /**
    * Compute exact frames for a perfect seamless loop.
-   * effectivePeriod is always a multiple of canvasW so text+bg
-   * both return to offset 0 at the same frame.
-   * Also caches effectivePeriod for renderLoopFrame.
+   *
+   * The key insight: we pick totalFrames first, then ensure that
+   * totalFrames * speedPerFrame == effectivePeriod EXACTLY.
+   * This eliminates any rounding drift between frame count and scroll distance.
+   *
+   * @param {number} fps - Target framerate
+   * @param {number} [compensationPx=0] - Extra pixels to add/subtract per cycle for hardware tuning
+   * @returns {{ effectivePeriod, loopFrames, loopDurationMs, scrollPerFrame }}
    */
-  computeLoopFrames(fps) {
+  computeLoopFrames(fps, compensationPx = 0) {
     const cfg = this._config;
     const w = this.canvasW;
 
@@ -529,21 +591,33 @@ window.LEDRenderer = class LEDRenderer {
     oCtx.font = `${cfg.fontWeight} ${cfg.fontSize}px ${fontFam}`;
     const textW = oCtx.measureText(cfg.text).width || 0;
 
-    const rawPeriod = Math.max(textW + cfg.textGap, w);
-    const effectivePeriod = Math.ceil(rawPeriod / w) * w;
+    const loopW = cfg.activeWidth || w;
+    const rawPeriod = Math.max(textW + cfg.textGap, loopW);
+    let effectivePeriod = Math.ceil(rawPeriod / loopW) * loopW;
+
+    // Apply hardware loop compensation (user-tunable offset in pixels)
+    effectivePeriod += compensationPx;
+    if (effectivePeriod < loopW) effectivePeriod = loopW; // safety floor
 
     // Cache for use by renderLoopFrame
     this._cachedEffectivePeriod = effectivePeriod;
 
     const frameDurationMs = 1000 / fps;
     const speedPerFrame = cfg.scrollSpeed * (frameDurationMs / 16.666);
-    if (speedPerFrame <= 0) return { loopFrames: fps * 10, loopDurationMs: 10000, effectivePeriod };
+    if (speedPerFrame <= 0) return { loopFrames: fps * 10, loopDurationMs: 10000, effectivePeriod, scrollPerFrame: 0 };
 
-    const loopFrames = Math.max(fps, Math.round(effectivePeriod / speedPerFrame));
+    // Use ceil to guarantee we never undershoot the cycle
+    const loopFrames = Math.max(fps, Math.ceil(effectivePeriod / speedPerFrame));
+
+    // Recalculate the exact scroll-per-frame so that
+    // loopFrames * scrollPerFrame == effectivePeriod  (EXACTLY, no rounding error)
+    const scrollPerFrame = effectivePeriod / loopFrames;
+
     return {
       effectivePeriod,
       loopFrames,
-      loopDurationMs: Math.round(loopFrames * frameDurationMs)
+      loopDurationMs: Math.round(loopFrames * frameDurationMs),
+      scrollPerFrame
     };
   }
 
@@ -594,9 +668,11 @@ window.LEDRenderer = class LEDRenderer {
       const oCtx = this.offscreenCtx;
       oCtx.clearRect(0, 0, w, h);
       this.renderBackground(oCtx, w, h, bgTime, cfg.bgSpeed, cfg.bgColor1, cfg.bgColor2, cfg.bgType);
-      const offset = ((this.bgOffsetX % w) + w) % w;
-      ctx.drawImage(this.offscreen, -offset, 0);
-      ctx.drawImage(this.offscreen, w - offset, 0);
+      const loopW = cfg.activeWidth || w;
+      const offset = ((this.bgOffsetX % loopW) + loopW) % loopW;
+      for (let x = -offset; x < w; x += loopW) {
+        ctx.drawImage(this.offscreen, x, 0);
+      }
     }
     ctx.restore();
     this._loopRenderMode = false;

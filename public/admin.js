@@ -34,6 +34,7 @@
     outlineColor: document.getElementById('outline-color'),
     outlineColorGroup: document.getElementById('outline-color-group'),
     
+    activeWidth: document.getElementById('active-width'),
     scrollSpeed: document.getElementById('scroll-speed'),
     textVertical: document.getElementById('text-vertical'),
     
@@ -105,9 +106,8 @@
   }
 
   function setupEventListeners() {
-    // Inputs sync
     [el.inputText, el.fontSize, el.fontWeight, el.textGap, 
-     el.scrollSpeed, el.textVertical, el.bgSpeed].forEach(input => {
+     el.scrollSpeed, el.textVertical, el.bgSpeed, el.activeWidth].forEach(input => {
       if (input.type === 'range') {
         input.addEventListener('input', (e) => {
           e.target.nextElementSibling.textContent = e.target.value;
@@ -394,6 +394,7 @@
       textShadow: el.textShadow.checked,
       textOutline: el.textOutline.checked,
       outlineColor: el.outlineColor.value,
+      activeWidth: parseInt(el.activeWidth.value) || 1728,
       scrollSpeed: parseFloat(el.scrollSpeed.value),
       textVertical: parseInt(el.textVertical.value),
       bgType: activeBgType,
@@ -418,6 +419,10 @@
       el.outlineColorGroup.style.display = config.textOutline ? 'block' : 'none';
     }
     if (config.outlineColor !== undefined) { el.outlineColor.value = config.outlineColor; el.outlineColor.nextElementSibling.textContent = config.outlineColor; }
+    if (config.activeWidth !== undefined) {
+      el.activeWidth.value = config.activeWidth;
+      if (cylinder3d) cylinder3d.setActiveWidth(config.activeWidth);
+    }
     if (config.scrollSpeed !== undefined) { el.scrollSpeed.value = config.scrollSpeed; el.scrollSpeed.nextElementSibling.textContent = config.scrollSpeed; }
     if (config.textVertical !== undefined) { el.textVertical.value = config.textVertical; el.textVertical.nextElementSibling.textContent = config.textVertical; }
     if (config.bgType !== undefined) {
@@ -476,7 +481,9 @@
   }
 
   function syncConfig() {
-    if (renderer) renderer.updateConfig(collectConfig());
+    const cfg = collectConfig();
+    if (renderer) renderer.updateConfig(cfg);
+    if (cylinder3d && cfg.activeWidth) cylinder3d.setActiveWidth(cfg.activeWidth);
   }
 
   function saveConfig() {
@@ -566,13 +573,12 @@
 
     // Compute the EXACT loop duration so first frame == last frame
     const loopInfo = renderer.computeLoopFrames(fps);
-    const loopDurationSec = (loopInfo.loopDurationMs / 1000).toFixed(1);
+    const totalMs = loopInfo.loopDurationMs;
+    const loopDurationSec = (totalMs / 1000).toFixed(1);
     const MAX_DURATION_MS = 120000; // 2-minute safety cap
 
-    let totalMs = loopInfo.loopDurationMs;
     if (totalMs > MAX_DURATION_MS) {
       showToast(`循环周期 ${loopDurationSec}s 超过2分钟上限，已截断。请降低速度或缩短文字。`, 'error');
-      totalMs = MAX_DURATION_MS;
     } else {
       showToast(`正在录制完整循环（${loopDurationSec}s），首尾帧完全对齐 ✓`, 'success');
     }
@@ -609,10 +615,9 @@
         });
 
         const frameDurationMs = 1000 / fps;
-        const totalFrames = Math.round(totalMs / frameDurationMs);
+        const totalFrames = loopInfo.loopFrames;
 
         for (let i = 0; i < totalFrames; i++) {
-          // Use phase-based rendering: every frame derived from exact phase, not accumulated state
           renderer.renderLoopFrame(i, totalFrames);
           const vf = new VideoFrame(el.canvas, { timestamp: Math.round(i * 1000000 / fps) });
           encoder.encode(vf, { keyFrame: i % fps === 0 });
@@ -669,7 +674,7 @@
       };
 
       // Use rAF loop with phase-based rendering so background also loops perfectly
-      const totalFrames = Math.round(totalMs / (1000 / fps));
+      const totalFrames = loopInfo.loopFrames;
       const startPerfTime = performance.now();
       let rafId;
 

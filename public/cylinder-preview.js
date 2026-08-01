@@ -12,10 +12,24 @@ window.CylinderPreview = class CylinderPreview {
     // Scale: 1 Three.js unit ≈ 5 LED pixels
     this.S = 5;
     const S = this.S;
-    this.cylRadius  = 1920 / (2 * Math.PI) / S; // ≈ 61.1 units
-    this.cylHeight  = 800 / S;                   // = 160 units
+    this.activeWidth = 1728;
+    this.cylRadius  = this.activeWidth / (2 * Math.PI) / S; // radius for active perimeter
+    this.cylHeight  = 800 / S;                               // = 160 units
 
     this._init();
+  }
+
+  setActiveWidth(activeWidth = 1728) {
+    this.activeWidth = activeWidth;
+    if (this.texture) {
+      this.texture.repeat.set(activeWidth / 1920, 1);
+    }
+    const newRadius = activeWidth / (2 * Math.PI) / this.S;
+    if (Math.abs(newRadius - this.cylRadius) > 0.1 && this.cylinder) {
+      this.cylRadius = newRadius;
+      this.cylinder.geometry.dispose();
+      this.cylinder.geometry = new THREE.CylinderGeometry(newRadius, newRadius, this.cylHeight, 256, 1, true);
+    }
   }
 
   _init() {
@@ -41,6 +55,7 @@ window.CylinderPreview = class CylinderPreview {
     this.texture = new THREE.CanvasTexture(this.ledCanvas);
     this.texture.wrapS   = THREE.ClampToEdgeWrapping;
     this.texture.wrapT   = THREE.ClampToEdgeWrapping;
+    this.texture.repeat.set(this.activeWidth / 1920, 1);
     this.texture.minFilter = THREE.LinearFilter;
     this.texture.magFilter = THREE.LinearFilter;
 

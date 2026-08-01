@@ -374,6 +374,15 @@ body {
   grid-template-columns: 1fr 1fr;
   gap: 15px;
 }
+.help-tip {
+  cursor: help;
+  font-size: 13px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+.help-tip:hover {
+  opacity: 1;
+}
 
 textarea, input[type="text"], input[type="number"], select {
   width: 100%;
