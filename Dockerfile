@@ -15,7 +15,7 @@ RUN npm ci --only=production
 COPY . .
 
 # Ensure storage directories exist
-RUN mkdir -p /app/data /app/uploads/fonts /app/uploads/videos
+RUN mkdir -p /app/data /app/uploads/fonts /app/uploads/videos /app/uploads/logos
 
 # Expose port
 EXPOSE 3000
