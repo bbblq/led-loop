@@ -580,11 +580,12 @@ window.LEDRenderer = class LEDRenderer {
     const totalTextH = lines.length * lineHeight;
     const loopW = cfg.activeWidth || w;
 
-    // Effective period: natural text spacing, at least one cylinder circumference.
-    // Do NOT round to multiples — the loopW tiling below handles the cylinder seam.
+    // Effective period: round UP to nearest multiple of loopW (cylinder circumference).
+    // This ensures every loopW-tiled copy position below coincides with a natural copy
+    // position, preventing overlapping text from misaligned tiles.
     const effectivePeriod = this._loopRenderMode && this._cachedEffectivePeriod
       ? this._cachedEffectivePeriod
-      : Math.max(maxTextW + cfg.textGap, loopW);
+      : Math.ceil(Math.max(maxTextW + cfg.textGap, loopW) / loopW) * loopW;
 
     // Normalize offset to [0, effectivePeriod)
     const offset = ((this.textOffsetX % effectivePeriod) + effectivePeriod) % effectivePeriod;
@@ -685,7 +686,8 @@ window.LEDRenderer = class LEDRenderer {
     }
 
     const loopW = cfg.activeWidth || w;
-    let effectivePeriod = Math.max(textW + cfg.textGap, loopW);
+    const rawPeriod = Math.max(textW + cfg.textGap, loopW);
+    let effectivePeriod = Math.ceil(rawPeriod / loopW) * loopW;
 
     // Apply hardware loop compensation (user-tunable offset in pixels)
     effectivePeriod += compensationPx;
