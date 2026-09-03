@@ -563,20 +563,35 @@ window.LEDRenderer = class LEDRenderer {
     const fontFam = cfg.fontFamily || '"Noto Sans SC", "Inter", sans-serif';
     ctx.font = `${cfg.fontWeight} ${cfg.fontSize}px ${fontFam}`;
     ctx.textBaseline = 'middle';
-    
-    const textW = ctx.measureText(cfg.text).width;
-    if (textW <= 0) return;
 
-    // Effective period: round UP to nearest multiple of active display width (e.g. 1728).
-    // This ensures text period and bg period (=loopW) are always co-divisible,
-    // so both return to position 0 at exactly the same frame → perfect loop.
+    // Multi-line support: split by newlines
+    const lines = (cfg.text || '').split('\n');
+    if (lines.length === 0 || lines.every(l => l.length === 0)) return;
+
+    // Measure max line width
+    let maxTextW = 0;
+    for (const line of lines) {
+      const lw = ctx.measureText(line).width;
+      if (lw > maxTextW) maxTextW = lw;
+    }
+    if (maxTextW <= 0) return;
+
+    const lineHeight = cfg.fontSize * 1.3;
+    const totalTextH = lines.length * lineHeight;
     const loopW = cfg.activeWidth || w;
-    const rawPeriod = Math.max(textW + cfg.textGap, loopW);
-    const effectivePeriod = Math.ceil(rawPeriod / loopW) * loopW;
-    
+
+    // Effective period: natural text spacing, at least one cylinder circumference.
+    // Do NOT round to multiples — the loopW tiling below handles the cylinder seam.
+    const effectivePeriod = this._loopRenderMode && this._cachedEffectivePeriod
+      ? this._cachedEffectivePeriod
+      : Math.max(maxTextW + cfg.textGap, loopW);
+
     // Normalize offset to [0, effectivePeriod)
     const offset = ((this.textOffsetX % effectivePeriod) + effectivePeriod) % effectivePeriod;
-    const yPos = (cfg.textVertical / 100) * h;
+
+    // Vertical centering: center the multi-line block around textVertical
+    const centerY = (cfg.textVertical / 100) * h;
+    const startY = centerY - (lines.length - 1) * lineHeight / 2;
     
     // Set up text styles
     ctx.fillStyle = cfg.textColor;
@@ -602,30 +617,41 @@ window.LEDRenderer = class LEDRenderer {
     }
 
     const drawAt = (x) => {
-      if (hasOutline) {
-        ctx.strokeStyle = cfg.outlineColor;
-        ctx.lineWidth = Math.max(2, cfg.fontSize * 0.04);
-        ctx.lineJoin = 'round';
-        const tempBlur = ctx.shadowBlur;
-        const tempColor = ctx.shadowColor;
-        ctx.shadowBlur = 0;
-        ctx.shadowColor = 'transparent';
-        
-        ctx.strokeText(cfg.text, x, yPos);
-        
-        ctx.shadowBlur = tempBlur;
-        ctx.shadowColor = tempColor;
+      for (let i = 0; i < lines.length; i++) {
+        const yPos = startY + i * lineHeight;
+        if (hasOutline) {
+          ctx.strokeStyle = cfg.outlineColor;
+          ctx.lineWidth = Math.max(2, cfg.fontSize * 0.04);
+          ctx.lineJoin = 'round';
+          const tempBlur = ctx.shadowBlur;
+          const tempColor = ctx.shadowColor;
+          ctx.shadowBlur = 0;
+          ctx.shadowColor = 'transparent';
+          
+          ctx.strokeText(lines[i], x, yPos);
+          
+          ctx.shadowBlur = tempBlur;
+          ctx.shadowColor = tempColor;
+        }
+        ctx.fillText(lines[i], x, yPos);
       }
-      ctx.fillText(cfg.text, x, yPos);
     };
 
-    // Draw all text copies that intersect the screen range [0, w]
-    let k = Math.floor(- (offset + textW) / effectivePeriod);
+    // Draw text copies with loopW-based cylinder tiling.
+    // For each text position in the effectivePeriod sequence, also tile at
+    // loopW intervals so the overlap region [loopW, canvasW) mirrors [0, canvasW-loopW).
+    // This is the same tiling pattern used by backgrounds (particles, nebula, etc.)
+    const tiles = Math.ceil(w / loopW) + 1;
+    let k = Math.floor(-(offset + maxTextW + loopW) / effectivePeriod);
     while (true) {
-      const x = -offset + k * effectivePeriod;
-      if (x >= w) break;
-      if (x + textW > 0) {
-        drawAt(x);
+      const baseX = -offset + k * effectivePeriod;
+      if (baseX >= w + loopW) break;
+      for (let n = 0; n < tiles; n++) {
+        const x = baseX + n * loopW;
+        if (x >= w) break;
+        if (x + maxTextW > 0) {
+          drawAt(x);
+        }
       }
       k++;
     }
@@ -649,11 +675,17 @@ window.LEDRenderer = class LEDRenderer {
     const oCtx = this.offscreenCtx;
     const fontFam = cfg.fontFamily || '"Noto Sans SC", "Inter", sans-serif';
     oCtx.font = `${cfg.fontWeight} ${cfg.fontSize}px ${fontFam}`;
-    const textW = oCtx.measureText(cfg.text).width || 0;
+
+    // Multi-line: measure max line width
+    const lines = (cfg.text || '').split('\n');
+    let textW = 0;
+    for (const line of lines) {
+      const lw = oCtx.measureText(line).width || 0;
+      if (lw > textW) textW = lw;
+    }
 
     const loopW = cfg.activeWidth || w;
-    const rawPeriod = Math.max(textW + cfg.textGap, loopW);
-    let effectivePeriod = Math.ceil(rawPeriod / loopW) * loopW;
+    let effectivePeriod = Math.max(textW + cfg.textGap, loopW);
 
     // Apply hardware loop compensation (user-tunable offset in pixels)
     effectivePeriod += compensationPx;
