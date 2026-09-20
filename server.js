@@ -22,6 +22,9 @@ const logosDir = path.join(__dirname, 'uploads', 'logos');
 // Config file path
 const configFile = path.join(dataDir, 'config.json');
 
+// Trust proxy for Docker / reverse proxy environments (Nginx, CasaOS, etc.)
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -169,6 +172,9 @@ const readRawConfig = () => {
 // 保存完整配置
 const saveRawConfig = (rawConfig) => {
   try {
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
     fs.writeFileSync(configFile, JSON.stringify(rawConfig, null, 2), 'utf8');
     return true;
   } catch (error) {
@@ -336,7 +342,7 @@ const getSafeFilename = (originalname) => {
   let name = originalname;
   try {
     const decoded = Buffer.from(originalname, 'latin1').toString('utf8');
-    if (decoded && !decoded.includes('')) {
+    if (decoded && !decoded.includes('\ufffd')) {
       name = decoded;
     }
   } catch (e) {}
@@ -347,6 +353,7 @@ const getSafeFilename = (originalname) => {
 // 字体上传配置
 const fontStorage = multer.diskStorage({
   destination: (req, file, cb) => {
+    if (!fs.existsSync(fontsDir)) fs.mkdirSync(fontsDir, { recursive: true });
     cb(null, fontsDir);
   },
   filename: (req, file, cb) => {
@@ -370,6 +377,7 @@ const fontUpload = multer({
 // 视频上传配置
 const videoStorage = multer.diskStorage({
   destination: (req, file, cb) => {
+    if (!fs.existsSync(videosDir)) fs.mkdirSync(videosDir, { recursive: true });
     cb(null, videosDir);
   },
   filename: (req, file, cb) => {
@@ -493,7 +501,10 @@ app.delete('/api/videos/:filename', requireAuth, (req, res) => {
 
 // Logo 相关路由与存储
 const logoStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, logosDir),
+  destination: (req, file, cb) => {
+    if (!fs.existsSync(logosDir)) fs.mkdirSync(logosDir, { recursive: true });
+    cb(null, logosDir);
+  },
   filename: (req, file, cb) => {
     cb(null, getSafeFilename(file.originalname));
   }

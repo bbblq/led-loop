@@ -404,12 +404,16 @@
       method: 'POST',
       body: formData
     })
-    .then(res => res.json())
-    .then(data => {
-      if (data.error) showToast(data.error, 'error');
-      else onSuccess(data);
+    .then(async res => {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        onSuccess(data);
+      } else {
+        const errorMsg = data.error || (res.status === 401 ? '未登录或登录已失效，请重新登录' : `上传失败 (HTTP ${res.status})`);
+        showToast(errorMsg, 'error');
+      }
     })
-    .catch(err => showToast('上传失败', 'error'));
+    .catch(err => showToast('上传网络请求失败: ' + (err.message || '未知错误'), 'error'));
   }
 
   function collectConfig() {
@@ -536,9 +540,15 @@
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(collectConfig())
-    }).then(res => res.json()).then(data => {
-      if(data.success) showToast('配置已保存');
-    }).catch(() => showToast('保存失败', 'error'));
+    }).then(async res => {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        showToast('配置已成功保存到磁盘');
+      } else {
+        const errorMsg = data.error || (res.status === 401 ? '未登录或登录已失效，请重新登录' : `保存失败 (HTTP ${res.status})`);
+        showToast(errorMsg, 'error');
+      }
+    }).catch(err => showToast('保存配置网络异常: ' + (err.message || '网络连接失败'), 'error'));
   }
 
   function loadFontList() {
