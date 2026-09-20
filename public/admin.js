@@ -54,6 +54,13 @@
     videoFileInput: document.getElementById('video-file-input'),
     videoList: document.getElementById('video-list'),
     
+    // Background Image
+    bgImageSelectGroup: document.getElementById('bg-image-select-group'),
+    bgImageSelect: document.getElementById('bg-image-select'),
+    bgimageUploadZone: document.getElementById('bgimage-upload-zone'),
+    bgimageFileInput: document.getElementById('bgimage-file-input'),
+    bgimageList: document.getElementById('bgimage-list'),
+    
     // Logo
     showLogo: document.getElementById('show-logo'),
     logoSelect: document.getElementById('logo-select'),
@@ -83,6 +90,7 @@
     recordFill: document.getElementById('record-fill'),
 
     btnRandomColor: document.getElementById('btn-random-color'),
+    btnExportPng: document.getElementById('btn-export-png'),
 
     // 3D Preview
     cylinder3dWrapper: document.getElementById('cylinder-3d-wrapper')
@@ -102,6 +110,7 @@
     loadFontList();
     loadVideoList();
     loadLogoList();
+    loadBgImageList();
     loadPresets();
     
     // Initialize 3D Cylinder Preview side-by-side with 2D Canvas
@@ -164,6 +173,7 @@
         btn.classList.add('active');
         activeBgType = btn.dataset.type;
         el.bgVideoSelectGroup.style.display = activeBgType === 'video' ? 'block' : 'none';
+        el.bgImageSelectGroup.style.display = activeBgType === 'image' ? 'block' : 'none';
         syncConfig();
       });
     });
@@ -182,6 +192,12 @@
       } else {
         el.videoBg.src = '';
       }
+      syncConfig();
+    });
+
+    el.bgImageSelect.addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (renderer) renderer.loadBgImage(val);
       syncConfig();
     });
 
@@ -239,9 +255,25 @@
       loadLogoList(data?.filename);
       syncConfig();
     });
+    setupUploadZone(el.bgimageUploadZone, el.bgimageFileInput, '/api/upload/bgimage', 'bgimage', (data) => {
+      showToast('背景图片上传成功');
+      loadBgImageList(data?.filename);
+      // Auto-switch to image bg type
+      activeBgType = 'image';
+      el.bgTypeBtns.forEach(b => {
+        if (b.dataset.type === 'image') b.classList.add('active');
+        else b.classList.remove('active');
+      });
+      el.bgImageSelectGroup.style.display = 'block';
+      el.bgVideoSelectGroup.style.display = 'none';
+      syncConfig();
+    });
 
     // Record
     el.btnRecord.addEventListener('click', startRecording);
+
+    // Export static PNG
+    el.btnExportPng.addEventListener('click', exportStaticPng);
   }
 
   // ===== Preset Helper Functions =====
@@ -436,6 +468,7 @@
       bgColor2: el.bgColor2.value,
       bgSpeed: parseFloat(el.bgSpeed.value),
       bgVideoUrl: el.bgVideoSelect.value,
+      bgImageUrl: el.bgImageSelect.value,
       showLogo: el.showLogo.checked,
       logoUrl: el.logoSelect.value,
       logoSize: parseInt(el.logoSize.value),
@@ -472,6 +505,7 @@
         else btn.classList.remove('active');
       });
       el.bgVideoSelectGroup.style.display = activeBgType === 'video' ? 'block' : 'none';
+      el.bgImageSelectGroup.style.display = activeBgType === 'image' ? 'block' : 'none';
     }
     if (config.bgColor1 !== undefined) { el.bgColor1.value = config.bgColor1; el.bgColor1.nextElementSibling.textContent = config.bgColor1; }
     if (config.bgColor2 !== undefined) { el.bgColor2.value = config.bgColor2; el.bgColor2.nextElementSibling.textContent = config.bgColor2; }
@@ -479,6 +513,10 @@
     if (config.bgVideoUrl !== undefined) {
       el.bgVideoSelect.value = config.bgVideoUrl;
       el.videoBg.src = config.bgVideoUrl ? `/uploads/videos/${config.bgVideoUrl}` : '';
+    }
+    if (config.bgImageUrl !== undefined) {
+      el.bgImageSelect.value = config.bgImageUrl;
+      if (renderer) renderer.loadBgImage(config.bgImageUrl);
     }
     if (config.showLogo !== undefined) el.showLogo.checked = config.showLogo;
     if (config.logoUrl !== undefined) {
@@ -646,6 +684,60 @@
     fetch(`/api/logos/${filename}`, { method: 'DELETE' })
       .then(() => { showToast('已删除'); loadLogoList(); })
       .catch(() => showToast('删除失败', 'error'));
+  }
+
+  function loadBgImageList(selectFilename) {
+    fetch('/api/bgimages')
+      .then(res => res.json())
+      .then(images => {
+        el.bgimageList.innerHTML = '';
+        el.bgImageSelect.innerHTML = '<option value="">(请上传背景图片)</option>';
+        images.forEach(f => {
+          const item = document.createElement('div');
+          item.className = 'file-item';
+          item.innerHTML = `<span class="file-name" title="${f.name}">${f.name}</span>
+            <button class="delete-btn" data-name="${f.name}"><svg viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>`;
+          item.querySelector('.delete-btn').addEventListener('click', () => deleteBgImage(f.filename));
+          el.bgimageList.appendChild(item);
+          const opt = document.createElement('option');
+          opt.value = f.filename;
+          opt.textContent = f.name;
+          el.bgImageSelect.appendChild(opt);
+        });
+
+        const targetVal = selectFilename || renderer?.config?.bgImageUrl || (images.length > 0 ? images[images.length - 1].filename : '');
+        if (targetVal) {
+          el.bgImageSelect.value = targetVal;
+          if (renderer) renderer.loadBgImage(targetVal);
+        }
+      });
+  }
+
+  function deleteBgImage(filename) {
+    if(!confirm(`确定删除背景图片 ${filename}?`)) return;
+    fetch(`/api/bgimages/${encodeURIComponent(filename)}`, { method: 'DELETE' })
+      .then(() => { showToast('已删除'); loadBgImageList(); })
+      .catch(() => showToast('删除失败', 'error'));
+  }
+
+  function exportStaticPng() {
+    if (!renderer) return;
+    // Render one frame to ensure canvas is up-to-date
+    if (!renderer.isPlaying) {
+      renderer.renderFrame(0);
+    }
+    el.canvas.toBlob((blob) => {
+      if (!blob) { showToast('导出失败', 'error'); return; }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `led-loop-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('静态图片已导出');
+    }, 'image/png');
   }
 
   function showToast(message, type = 'success') {

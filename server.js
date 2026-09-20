@@ -12,8 +12,9 @@ const dataDir = path.join(__dirname, 'data');
 const fontsDir = path.join(__dirname, 'uploads', 'fonts');
 const videosDir = path.join(__dirname, 'uploads', 'videos');
 const logosDir = path.join(__dirname, 'uploads', 'logos');
+const bgimagesDir = path.join(__dirname, 'uploads', 'bgimages');
 
-[dataDir, fontsDir, videosDir, logosDir].forEach(dir => {
+[dataDir, fontsDir, videosDir, logosDir, bgimagesDir].forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -564,6 +565,82 @@ app.delete('/api/logos/:filename', requireAuth, (req, res) => {
   try {
     const filename = decodeURIComponent(req.params.filename);
     const filePath = path.join(logosDir, filename);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ error: 'File not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete file' });
+  }
+});
+
+// 背景图片相关路由与存储
+const bgimageStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    if (!fs.existsSync(bgimagesDir)) fs.mkdirSync(bgimagesDir, { recursive: true });
+    cb(null, bgimagesDir);
+  },
+  filename: (req, file, cb) => {
+    cb(null, getSafeFilename(file.originalname));
+  }
+});
+
+const bgimageUpload = multer({
+  storage: bgimageStorage,
+  limits: { fileSize: 30 * 1024 * 1024 }, // 30MB
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (['.png', '.jpg', '.jpeg', '.webp', '.bmp'].includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid background image file type'));
+    }
+  }
+});
+
+app.post('/api/upload/bgimage', requireAuth, (req, res, next) => {
+  bgimageUpload.any()(req, res, (err) => {
+    if (err) return handleMulterError(err, req, res, next);
+    const file = req.file || (req.files && req.files[0]);
+    if (!file) return res.status(400).json({ success: false, error: 'No file uploaded' });
+    
+    let originalName = file.originalname;
+    try {
+      const decoded = Buffer.from(file.originalname, 'latin1').toString('utf8');
+      if (decoded && !decoded.includes('\ufffd')) originalName = decoded;
+    } catch(e) {}
+
+    res.json({
+      success: true,
+      name: originalName,
+      filename: file.filename,
+      url: `/uploads/bgimages/${encodeURIComponent(file.filename)}`
+    });
+  });
+});
+
+app.get('/api/bgimages', (req, res) => {
+  try {
+    const files = fs.readdirSync(bgimagesDir);
+    const bgimages = files
+      .filter(file => file !== '.gitkeep')
+      .map(file => ({
+        name: file.split('-').slice(1).join('-') || file,
+        filename: file,
+        url: `/uploads/bgimages/${encodeURIComponent(file)}`
+      }));
+    res.json(bgimages);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to read bgimages directory' });
+  }
+});
+
+app.delete('/api/bgimages/:filename', requireAuth, (req, res) => {
+  try {
+    const filename = decodeURIComponent(req.params.filename);
+    const filePath = path.join(bgimagesDir, filename);
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
       res.json({ success: true });

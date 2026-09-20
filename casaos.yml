@@ -35,7 +35,7 @@ x-casaos:
     en_us: Web App for 1920x800 Cylindrical LED Screens with Seamless Horizontal Scrolling
     zh_cn: 专为 1920x800 圆柱形 LED 屏打造的横向无缝循环信息流生成器
   description:
-    en_us: Generate 1920x800 seamless horizontal text stream videos and live displays for cylindrical LED screens. Supports custom fonts, video backgrounds, 11 animated backgrounds, MP4 export, and remote management.
-    zh_cn: 专为 1920x800 圆柱形 LED 大屏设计的横向移动文字信息流生成与展示系统。完美解决圆柱左右接缝的连续流动问题。支持自定义字体、视频背景、11 种炫酷动效背景、MP4 导出以及独立展示/管理页面。
+    en_us: Generate 1920x800 seamless horizontal text stream videos and live displays for cylindrical LED screens. Supports custom fonts, video/image backgrounds, 16 animated backgrounds (including enterprise ceremonial themes), MP4/PNG export, and remote management.
+    zh_cn: 专为 1920x800 圆柱形 LED 大屏设计的横向移动文字信息流生成与展示系统。完美解决圆柱左右接缝的连续流动问题。支持自定义字体、视频/静态图片背景、16 种炫酷与国企恢宏大气动效背景、MP4/静态PNG 导出以及独立展示/管理页面。
   index: /
   developer: bbblq

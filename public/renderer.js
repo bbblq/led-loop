@@ -27,6 +27,7 @@ window.LEDRenderer = class LEDRenderer {
       bgColor2: '#1a1a4e',
       bgSpeed: 1,
       bgVideo: '', // URL to video file
+      bgImageUrl: '', // URL to background image
       showLogo: false,
       logoUrl: '',
       logoSize: 150,
@@ -88,9 +89,13 @@ window.LEDRenderer = class LEDRenderer {
 
   updateConfig(config) {
     const oldLogoUrl = this._config?.logoUrl;
+    const oldBgImageUrl = this._config?.bgImageUrl;
     this._config = { ...this._config, ...config };
     if (config.logoUrl !== undefined && config.logoUrl !== oldLogoUrl) {
       this.loadLogo(config.logoUrl);
+    }
+    if (config.bgImageUrl !== undefined && config.bgImageUrl !== oldBgImageUrl) {
+      this.loadBgImage(config.bgImageUrl);
     }
   }
 
@@ -114,6 +119,35 @@ window.LEDRenderer = class LEDRenderer {
       let src = logoUrl;
       if (!src.startsWith('/')) {
         src = `/uploads/logos/${encodeURIComponent(logoUrl)}`;
+      } else {
+        const parts = src.split('/');
+        const filename = parts.pop();
+        src = parts.join('/') + '/' + encodeURIComponent(decodeURIComponent(filename));
+      }
+      img.src = src;
+    });
+  }
+
+  loadBgImage(bgImageUrl) {
+    if (!bgImageUrl) {
+      this.bgImg = null;
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        this.bgImg = img;
+        resolve(img);
+      };
+      img.onerror = (err) => {
+        console.warn('Failed to load background image:', bgImageUrl, err);
+        this.bgImg = null;
+        resolve(null);
+      };
+      let src = bgImageUrl;
+      if (!src.startsWith('/')) {
+        src = `/uploads/bgimages/${encodeURIComponent(bgImageUrl)}`;
       } else {
         const parts = src.split('/');
         const filename = parts.pop();
@@ -541,6 +575,365 @@ window.LEDRenderer = class LEDRenderer {
           ctx.fillRect(x, h - flameH, colWidth + 1, flameH);
         }
         ctx.globalCompositeOperation = 'source-over';
+        break;
+      }
+      case 'golden-ribbon': {
+        // 金波华章 — Deep ceremonial base with flowing golden light ribbons
+        const grBase = ctx.createLinearGradient(0, 0, 0, h);
+        grBase.addColorStop(0, '#0a0318');
+        grBase.addColorStop(0.4, color1);
+        grBase.addColorStop(0.7, '#120824');
+        grBase.addColorStop(1, '#050210');
+        ctx.fillStyle = grBase;
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.globalCompositeOperation = 'screen';
+        // 5 flowing golden light ribbon bands
+        const ribbonColors = [
+          'rgba(255, 215, 80, 0.25)',
+          'rgba(255, 190, 60, 0.20)',
+          'rgba(255, 230, 120, 0.15)',
+          'rgba(220, 180, 50, 0.22)',
+          'rgba(255, 200, 90, 0.18)'
+        ];
+        for (let i = 0; i < 5; i++) {
+          ctx.beginPath();
+          const yBase = h * (0.15 + i * 0.15);
+          for (let x = 0; x <= w; x += 10) {
+            const normX = (x % loopW) / loopW;
+            const y = yBase
+              + Math.sin(normX * Math.PI * 2 * (i + 1) + tSec * 0.4 + i * 0.8) * 60
+              + Math.sin(normX * Math.PI * 2 * (i + 3) - tSec * 0.25) * 35;
+            if (x === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          // Close as a thick band
+          for (let x = w; x >= 0; x -= 10) {
+            const normX = (x % loopW) / loopW;
+            const y = yBase + 40
+              + Math.sin(normX * Math.PI * 2 * (i + 1) + tSec * 0.4 + i * 0.8) * 55
+              + Math.cos(normX * Math.PI * 2 * (i + 2) - tSec * 0.3) * 30;
+            ctx.lineTo(x, y);
+          }
+          ctx.closePath();
+          ctx.fillStyle = ribbonColors[i];
+          ctx.fill();
+        }
+
+        // Floating golden orbs
+        for (let i = 0; i < 6; i++) {
+          const orbPhase = i * 1.05;
+          const oxBase = (loopW * 0.15 + i * loopW * 0.14 + Math.sin(tSec * 0.2 + orbPhase) * loopW * 0.08) % loopW;
+          const oy = h * 0.2 + Math.cos(tSec * 0.15 + orbPhase) * h * 0.25 + i * 20;
+          const orbR = 80 + Math.sin(tSec * 0.3 + i) * 30;
+          for (let k = -1; k <= Math.ceil(w / loopW); k++) {
+            const ox = oxBase + k * loopW;
+            if (ox + orbR < -100 || ox - orbR > w + 100) continue;
+            const grd = ctx.createRadialGradient(ox, oy, 0, ox, oy, orbR);
+            grd.addColorStop(0, 'rgba(255, 220, 100, 0.25)');
+            grd.addColorStop(0.6, 'rgba(255, 180, 50, 0.08)');
+            grd.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = grd;
+            ctx.beginPath();
+            ctx.arc(ox, oy, orbR, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        ctx.globalCompositeOperation = 'source-over';
+        break;
+      }
+      case 'tech-horizon': {
+        // 科技地平线 — Dark blue with glowing horizon, floating hexagons, data particle streams
+        const thBg = ctx.createLinearGradient(0, 0, 0, h);
+        thBg.addColorStop(0, '#020a1a');
+        thBg.addColorStop(0.55, color1);
+        thBg.addColorStop(0.6, color2);
+        thBg.addColorStop(1, '#010610');
+        ctx.fillStyle = thBg;
+        ctx.fillRect(0, 0, w, h);
+
+        // Glowing horizon line
+        const horizonY = h * 0.58;
+        ctx.globalCompositeOperation = 'screen';
+        const hlGrad = ctx.createLinearGradient(0, horizonY - 80, 0, horizonY + 80);
+        hlGrad.addColorStop(0, 'rgba(0,0,0,0)');
+        hlGrad.addColorStop(0.45, `rgba(${rgb2.r}, ${rgb2.g}, ${rgb2.b}, 0.5)`);
+        hlGrad.addColorStop(0.5, `rgba(${rgb2.r}, ${rgb2.g}, ${rgb2.b}, 0.8)`);
+        hlGrad.addColorStop(0.55, `rgba(${rgb2.r}, ${rgb2.g}, ${rgb2.b}, 0.5)`);
+        hlGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = hlGrad;
+        ctx.fillRect(0, horizonY - 80, w, 160);
+
+        // Perspective grid below horizon
+        ctx.strokeStyle = `rgba(${rgb2.r}, ${rgb2.g}, ${rgb2.b}, 0.15)`;
+        ctx.lineWidth = 1;
+        for (let i = 1; i <= 10; i++) {
+          const p = Math.pow(i / 10, 2);
+          const ly = horizonY + p * (h - horizonY);
+          ctx.globalAlpha = 0.1 + p * 0.3;
+          ctx.beginPath();
+          ctx.moveTo(0, ly);
+          ctx.lineTo(w, ly);
+          ctx.stroke();
+        }
+        // Vertical perspective lines
+        const vanishX = w / 2;
+        for (let i = 0; i < 16; i++) {
+          const angle = (i / 16) * Math.PI - Math.PI / 2;
+          const endX = vanishX + Math.cos(angle) * w * 1.5;
+          const endY = h + 50;
+          ctx.globalAlpha = 0.08;
+          ctx.beginPath();
+          ctx.moveTo(vanishX, horizonY);
+          ctx.lineTo(endX, endY);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+
+        // Floating hexagon outlines above horizon
+        ctx.lineWidth = 1.5;
+        for (let i = 0; i < 8; i++) {
+          const hxBase = (loopW * 0.1 + i * loopW * 0.125 + Math.cos(tSec * 0.1 + i * 0.9) * 30) % loopW;
+          const hy = h * 0.1 + i * 35 + Math.sin(tSec * 0.2 + i) * 20;
+          const hr = 20 + i * 5;
+          const alpha = 0.15 + (Math.sin(tSec * 0.5 + i * 1.1) + 1) / 2 * 0.35;
+          ctx.strokeStyle = `rgba(${rgb2.r}, ${rgb2.g}, ${rgb2.b}, ${alpha})`;
+          for (let k = -1; k <= Math.ceil(w / loopW); k++) {
+            const hx = hxBase + k * loopW;
+            if (hx + hr < -50 || hx - hr > w + 50) continue;
+            ctx.beginPath();
+            for (let s = 0; s < 6; s++) {
+              const a = Math.PI / 3 * s - Math.PI / 6;
+              const px = hx + Math.cos(a) * hr;
+              const py = hy + Math.sin(a) * hr;
+              if (s === 0) ctx.moveTo(px, py);
+              else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.stroke();
+          }
+        }
+
+        // Rising data particles
+        for (let i = 0; i < 30; i++) {
+          const seed = i * 137.508;
+          const pxBase = (seed * 7.3) % loopW;
+          const rawY = ((seed * 3.7 + tSec * (30 + (i % 5) * 15)) % (h + 40)) - 20;
+          const py = h - rawY;
+          const alpha = 0.2 + (Math.sin(tSec * 2 + i) + 1) / 2 * 0.6;
+          ctx.fillStyle = `rgba(${rgb2.r}, ${rgb2.g}, ${rgb2.b}, ${alpha})`;
+          for (let k = -1; k <= Math.ceil(w / loopW); k++) {
+            const px = pxBase + k * loopW;
+            if (px >= -5 && px <= w + 5) {
+              ctx.fillRect(px - 1.5, py - 1.5, 3, 3);
+            }
+          }
+        }
+        ctx.globalCompositeOperation = 'source-over';
+        break;
+      }
+      case 'silk-flow': {
+        // 丝绸流韵 — Luxurious multi-layer silk fabric flowing curves
+        const sfBg = ctx.createLinearGradient(0, 0, 0, h);
+        sfBg.addColorStop(0, color1);
+        sfBg.addColorStop(0.5, color2);
+        sfBg.addColorStop(1, color1);
+        ctx.fillStyle = sfBg;
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.globalCompositeOperation = 'screen';
+        // 7 layers of flowing silk curves
+        for (let i = 0; i < 7; i++) {
+          const baseY = h * (0.1 + i * 0.12);
+          const alpha = 0.06 + i * 0.015;
+          ctx.beginPath();
+          ctx.moveTo(0, h);
+          for (let x = 0; x <= w; x += 8) {
+            const normX = (x % loopW) / loopW;
+            const phase1 = normX * Math.PI * 2 * (1 + i * 0.5) + tSec * (0.2 + i * 0.05);
+            const phase2 = normX * Math.PI * 2 * (2 + i * 0.3) - tSec * (0.15 + i * 0.03);
+            const y = baseY
+              + Math.sin(phase1) * (50 + i * 15)
+              + Math.sin(phase2) * (30 + i * 8)
+              + Math.sin(normX * Math.PI * 2 * 0.5 + tSec * 0.1) * 20;
+            ctx.lineTo(x, y);
+          }
+          ctx.lineTo(w, h);
+          ctx.closePath();
+          ctx.fillStyle = `rgba(${rgb2.r}, ${rgb2.g}, ${rgb2.b}, ${alpha})`;
+          ctx.fill();
+        }
+
+        // Subtle shimmering highlights
+        for (let i = 0; i < 4; i++) {
+          const shimX = (loopW * 0.2 + i * loopW * 0.22 + tSec * 15) % loopW;
+          const shimY = h * 0.3 + Math.sin(tSec * 0.3 + i * 1.5) * h * 0.2;
+          for (let k = -1; k <= Math.ceil(w / loopW); k++) {
+            const sx = shimX + k * loopW;
+            if (sx < -200 || sx > w + 200) continue;
+            const sg = ctx.createRadialGradient(sx, shimY, 0, sx, shimY, 150);
+            sg.addColorStop(0, `rgba(255, 255, 255, ${0.04 + (Math.sin(tSec * 0.5 + i) + 1) * 0.02})`);
+            sg.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = sg;
+            ctx.beginPath();
+            ctx.arc(sx, shimY, 150, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        ctx.globalCompositeOperation = 'source-over';
+        break;
+      }
+      case 'mountain-mist': {
+        // 山水意境 — Layered abstract mountain silhouettes with drifting clouds
+        // Sky gradient
+        const mmSky = ctx.createLinearGradient(0, 0, 0, h);
+        mmSky.addColorStop(0, color1);
+        mmSky.addColorStop(0.6, color2);
+        mmSky.addColorStop(1, color1);
+        ctx.fillStyle = mmSky;
+        ctx.fillRect(0, 0, w, h);
+
+        // 5 layers of mountains from back to front
+        const mountainLayers = [
+          { baseY: 0.42, amp: 80, freq: 1.5, alpha: 0.12, drift: 0.05 },
+          { baseY: 0.50, amp: 100, freq: 2.0, alpha: 0.18, drift: 0.08 },
+          { baseY: 0.58, amp: 90, freq: 2.8, alpha: 0.25, drift: 0.12 },
+          { baseY: 0.66, amp: 70, freq: 3.5, alpha: 0.32, drift: 0.06 },
+          { baseY: 0.75, amp: 50, freq: 4.0, alpha: 0.40, drift: 0.03 }
+        ];
+        for (let li = 0; li < mountainLayers.length; li++) {
+          const ml = mountainLayers[li];
+          ctx.beginPath();
+          ctx.moveTo(0, h);
+          for (let x = 0; x <= w; x += 6) {
+            const normX = (x % loopW) / loopW;
+            const y = h * ml.baseY
+              - Math.abs(Math.sin(normX * Math.PI * 2 * ml.freq + li * 0.7)) * ml.amp
+              - Math.sin(normX * Math.PI * 2 * (ml.freq * 0.5) + tSec * ml.drift) * 25
+              - Math.abs(Math.sin(normX * Math.PI * 2 * (ml.freq * 2.3) + li * 2.1)) * (ml.amp * 0.3);
+            ctx.lineTo(x, y);
+          }
+          ctx.lineTo(w, h);
+          ctx.closePath();
+          const mAlpha = ml.alpha + (Math.sin(tSec * 0.2 + li) + 1) * 0.02;
+          ctx.fillStyle = `rgba(${rgb2.r}, ${rgb2.g}, ${rgb2.b}, ${mAlpha})`;
+          ctx.fill();
+        }
+
+        // Drifting cloud/mist layers
+        ctx.globalCompositeOperation = 'screen';
+        for (let i = 0; i < 5; i++) {
+          const cloudXBase = ((tSec * (8 + i * 3)) % loopW);
+          const cloudY = h * (0.2 + i * 0.12) + Math.sin(tSec * 0.15 + i) * 20;
+          const cloudW = 300 + i * 50;
+          const cloudH = 40 + i * 10;
+          for (let k = -1; k <= Math.ceil(w / loopW) + 1; k++) {
+            const cx = cloudXBase + k * loopW;
+            if (cx + cloudW < -50 || cx - cloudW > w + 50) continue;
+            const cg = ctx.createRadialGradient(cx, cloudY, 0, cx, cloudY, cloudW);
+            cg.addColorStop(0, `rgba(${rgb2.r}, ${rgb2.g}, ${rgb2.b}, 0.06)`);
+            cg.addColorStop(0.4, `rgba(${rgb2.r}, ${rgb2.g}, ${rgb2.b}, 0.03)`);
+            cg.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = cg;
+            ctx.fillRect(cx - cloudW, cloudY - cloudH, cloudW * 2, cloudH * 2);
+          }
+        }
+        ctx.globalCompositeOperation = 'source-over';
+        break;
+      }
+      case 'starlight-glow': {
+        // 璀璨华光 — Elegant glowing orbs with faint constellation lines on deep blue
+        ctx.fillStyle = '#030812';
+        ctx.fillRect(0, 0, w, h);
+
+        // Deep ambient gradient
+        ctx.globalCompositeOperation = 'screen';
+        const sgBase = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w * 0.6);
+        sgBase.addColorStop(0, `rgba(${rgb1.r}, ${rgb1.g}, ${rgb1.b}, 0.3)`);
+        sgBase.addColorStop(0.5, `rgba(${rgb2.r}, ${rgb2.g}, ${rgb2.b}, 0.15)`);
+        sgBase.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = sgBase;
+        ctx.fillRect(0, 0, w, h);
+
+        // 12 glowing star orbs with slow orbital motion
+        const starPoints = [];
+        for (let i = 0; i < 12; i++) {
+          const seed = i * 137.508;
+          const sxBase = (seed * 5.7 + Math.sin(tSec * 0.08 + i * 0.5) * 40) % loopW;
+          const sy = h * 0.1 + (seed * 3.3) % (h * 0.8) + Math.cos(tSec * 0.1 + i * 0.7) * 15;
+          const sr = 3 + (i % 4) * 1.5;
+          const brightness = 0.3 + (Math.sin(tSec * 0.4 + seed) + 1) / 2 * 0.7;
+          starPoints.push({ xBase: sxBase, y: sy, r: sr, brightness });
+
+          for (let k = -1; k <= Math.ceil(w / loopW); k++) {
+            const sx = sxBase + k * loopW;
+            if (sx < -100 || sx > w + 100) continue;
+
+            // Glow halo
+            const haloR = sr * 15;
+            const halo = ctx.createRadialGradient(sx, sy, 0, sx, sy, haloR);
+            halo.addColorStop(0, `rgba(${rgb2.r}, ${rgb2.g}, ${rgb2.b}, ${brightness * 0.15})`);
+            halo.addColorStop(0.3, `rgba(${rgb2.r}, ${rgb2.g}, ${rgb2.b}, ${brightness * 0.06})`);
+            halo.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = halo;
+            ctx.beginPath();
+            ctx.arc(sx, sy, haloR, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Star core
+            ctx.fillStyle = `rgba(255, 255, 255, ${brightness * 0.9})`;
+            ctx.beginPath();
+            ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        // Faint constellation connecting lines between nearby stars (within same loopW tile)
+        ctx.strokeStyle = `rgba(${rgb2.r}, ${rgb2.g}, ${rgb2.b}, 0.06)`;
+        ctx.lineWidth = 1;
+        for (let i = 0; i < starPoints.length; i++) {
+          for (let j = i + 1; j < starPoints.length; j++) {
+            const dx = starPoints[i].xBase - starPoints[j].xBase;
+            const dy = starPoints[i].y - starPoints[j].y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < loopW * 0.25) {
+              for (let k = -1; k <= Math.ceil(w / loopW); k++) {
+                const x1 = starPoints[i].xBase + k * loopW;
+                const x2 = starPoints[j].xBase + k * loopW;
+                if (Math.max(x1, x2) < -50 || Math.min(x1, x2) > w + 50) continue;
+                ctx.beginPath();
+                ctx.moveTo(x1, starPoints[i].y);
+                ctx.lineTo(x2, starPoints[j].y);
+                ctx.stroke();
+              }
+            }
+          }
+        }
+        ctx.globalCompositeOperation = 'source-over';
+        break;
+      }
+      case 'image': {
+        if (this.bgImg && this.bgImg.complete && this.bgImg.naturalWidth > 0) {
+          // Draw the background image scaled to cover the canvas
+          const img = this.bgImg;
+          const imgAspect = img.naturalWidth / img.naturalHeight;
+          const canvasAspect = w / h;
+          let drawW, drawH, drawX, drawY;
+          if (imgAspect > canvasAspect) {
+            drawH = h;
+            drawW = h * imgAspect;
+            drawX = (w - drawW) / 2;
+            drawY = 0;
+          } else {
+            drawW = w;
+            drawH = w / imgAspect;
+            drawX = 0;
+            drawY = (h - drawH) / 2;
+          }
+          ctx.drawImage(img, drawX, drawY, drawW, drawH);
+        } else {
+          this.renderBackground(ctx, w, h, t, speed, color1, color2, 'gradient-flow');
+        }
         break;
       }
       case 'video': {
